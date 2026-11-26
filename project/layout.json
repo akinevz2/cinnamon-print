@@ -1,0 +1,137 @@
+{
+  "title": "Transatlantic Accent Guide",
+  "canvas": {
+    "width": 1200,
+    "height": 1400,
+    "background": "#ffffff"
+  },
+  "fonts": [
+    {
+      "file": "BAHNSCHRIFT.TTF",
+      "name": "BAHNSCHRIFT"
+    }
+  ],
+  "elements": [
+    {
+      "type": "text",
+      "text": "TRANSATLANTIC ACCENT GUIDE",
+      "x": 40,
+      "y": 40,
+      "font": "BAHNSCHRIFT",
+      "size": 44,
+      "color": "#2c3e50",
+      "weight": "bold",
+      "align": "center",
+      "width": 1120
+    },
+    {
+      "type": "text",
+      "text": "To speak with a Transatlantic accent, blend crisp British consonants with open American vowels and keep your voice forward in your mouth. Think of it as an intentionally learned, theatrical hybrid designed for maximum clarity on old microphones.",
+      "x": 40,
+      "y": 125.59375,
+      "font": "BAHNSCHRIFT",
+      "size": 16,
+      "color": "#34495e",
+      "width": 1120,
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "text": "1. PLACEMENT & POSTURE",
+      "x": 60,
+      "y": 218.375,
+      "font": "BAHNSCHRIFT",
+      "size": 30,
+      "color": "#2980b9",
+      "weight": "bold",
+      "width": 333.3333333333333,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "text": "• Move the sound forward. Push your resonance toward the front of your face and behind your teeth rather than letting it sit deep in your throat.\n• Hold a poised, brisk rhythm. Speak with an energetic, musical bounce—pitching slightly higher on key words and landing firmly at the end of thoughts.",
+      "x": 60,
+      "y": 314.375,
+      "font": "BAHNSCHRIFT",
+      "size": 16,
+      "color": "#34495e",
+      "width": 333.3333333333333
+    },
+    {
+      "type": "text",
+      "text": "2. CONSONANT RULES",
+      "x": 433.3333333333333,
+      "y": 218.375,
+      "font": "BAHNSCHRIFT",
+      "size": 30,
+      "color": "#2980b9",
+      "weight": "bold",
+      "width": 333.3333333333333,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "text": "• Drop your trailing R's. If an R comes after a vowel or at the end of a word, turn it into an uh or ah sound.\nCar → cah, father → fah-thuh.\n\n• Tap your middle T's. Never soften a T into a D sound.\nButter → buh-tuh, water → wah-tuh.\n\n• Add a Y glide before U's.\nDuty → dyoo-tee, tune → tyoon.\n\n• Blow air into WH words.\nwhat → wh-what, where → wh-where.\n\n• Finish every word. Never drop the G in -ing endings.\nstepping → step-ping",
+      "x": 433.3333333333333,
+      "y": 314.375,
+      "font": "BAHNSCHRIFT",
+      "size": 16,
+      "color": "#34495e",
+      "width": 333.3333333333333
+    },
+    {
+      "type": "text",
+      "text": "3. VOWEL RULES",
+      "x": 806.6666666666666,
+      "y": 218.375,
+      "font": "BAHNSCHRIFT",
+      "size": 30,
+      "color": "#2980b9",
+      "weight": "bold",
+      "width": 333.3333333333333,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "text": "• Broaden your short A's.\nIn words like bath, can't, and dance, open your jaw and shift the flat American a toward a softer, rounder ah.\nCan't → cahn't.\n\n• Relax final E's.\nWords ending in Y shouldn't end with a tight, smiling ee sound.\nHappy → hap-pih.\n\n• Keep short O's open.\nUnlike modern British English, keep words like not and hot open and unrounded.\nNot → naht, hot → haht",
+      "x": 806.6666666666666,
+      "y": 272.375,
+      "font": "BAHNSCHRIFT",
+      "size": 16,
+      "color": "#34495e",
+      "width": 333.3333333333333
+    },
+    {
+      "type": "text",
+      "text": "4. PRACTICE DRILLS",
+      "x": 60,
+      "y": 517.5,
+      "font": "BAHNSCHRIFT",
+      "size": 30,
+      "color": "#2980b9",
+      "weight": "bold",
+      "width": 333.3333333333333,
+      "align": "left"
+    },
+    {
+      "type": "text",
+      "text": "• \"Could you pahss the buh-tuh, Wah-tuh?\"\n• \"It's Tom's dyoo-tee to do the lighting on Tyooz-day.\"\n• \"I simply cahn't imagine wh-at the maht-tuh could be!\"",
+      "x": 60,
+      "y": 571.5,
+      "font": "BAHNSCHRIFT",
+      "size": 16,
+      "color": "#e74c3c",
+      "width": 333.3333333333333
+    },
+    {
+      "type": "text",
+      "text": "Keep Practicing:\n\nIf you'd like a customized breakdown:\n• Tell me: A specific line or monologue you're working on\n• Tell me: Whether you're starting from a British or American baseline\n\nI can write out a customized phonetic breakdown for you.\n\n...and remember, it's a theatrical hybrid designed for maximum clarity on old microphones.",
+      "x": 806.6666666666666,
+      "y": 654.625,
+      "font": "BAHNSCHRIFT",
+      "size": 16,
+      "color": "#34495e",
+      "width": 333.3333333333333
+    }
+  ]
+}

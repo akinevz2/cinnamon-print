@@ -1,0 +1,7 @@
+.config
+.local
+node_modules
+.git
+*.zip
+project/output
+result*

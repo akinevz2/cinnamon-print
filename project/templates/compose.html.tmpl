@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<!-- imagework pandoc template — MAINTAINED BY THE AGENT.
+     Must stay correct for BOTH render targets:
+       target=png -> fixed window, exact pixel canvas, no pagination
+       target=pdf -> A4/Letter-agnostic page sizing, canvas fits a page -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>$title$</title>
+  <style>
+    /* custom fonts injected from layout.json by compose.mjs */
+    $fonts$
+
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+
+    /* png: exact-canvas screenshot */
+    body[data-target="png"] {
+      width: $canvasWidth$;
+      height: $canvasHeight$;
+      overflow: hidden;
+    }
+    /* pdf: one clean page, canvas fits a page */
+    body[data-target="pdf"] {
+      background: white;
+    }
+    @media print {
+      body { margin: 0; }
+      .canvas { break-inside: avoid; page-break-after: avoid; }
+    }
+
+    .fragment {
+      position: absolute;
+      image-rendering: auto;
+    }
+    .text {
+      position: absolute;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+  </style>
+  <script>
+    /* livereload hook: present only when served by serve.mjs */
+    if (new EventSource("/reload")) {
+      new EventSource("/reload").onmessage = () => location.reload();
+    }
+  </script>
+</head>
+<body class="$target$" data-target="$target$">
+$body$
+</body>
+</html>

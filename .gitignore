@@ -1,0 +1,17 @@
+# intermediates & artifacts
+project/output/*
+project/compose.html
+project/compose.body.html
+project/compose-measure.html
+result*
+.image-built
+imagework.zip
+
+# runtime caches / local state
+.cache/
+.config/
+.local/
+node_modules/
+
+# windows zone-identifier droppings
+*Zone.Identifier
