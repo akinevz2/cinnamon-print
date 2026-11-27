@@ -86,13 +86,13 @@
   const frame = document.getElementById("frame");
   const final = document.getElementById("final");
 
-  function setFinalLink(file) {
+  function setFinalLink(stem, file) {
     // The "open full-size" link must always point at the artefact currently
     // in the frame — not whatever last fired a build-completion event.
-    if (!file) { final.hidden = true; return; }
+    if (!file || !stem) { final.hidden = true; return; }
     final.hidden = false;
     final.textContent = "open full-size " + file;
-    final.href = "/output/" + file;
+    final.href = `/${stem}/output/${file}`;
   }
 
   function onEvent(d) {
@@ -102,10 +102,10 @@
     }
     if (d.artifact) {
       frame.hidden = false;
-      frame.src = "/output/" + d.artifact + "?v=" + Date.now();
+      frame.src = "/" + (d.stem ?? "") + "/output/" + d.artifact + "?v=" + Date.now();
       if (!/_\d+\.png$/.test(d.artifact)) {   // no step suffix -> final artefact
         status.textContent = "done — final artefact: " + d.artifact;
-        setFinalLink(d.artifact);
+        setFinalLink(d.stem, d.artifact);
       }
     }
   }
@@ -134,9 +134,9 @@
   function select(p, li) {
     activeFile = p.file;
     frame.hidden = false;
-    frame.src = "/output/" + p.file + "?v=" + Date.now();
+    frame.src = "/" + p.stem + "/output/" + p.file + "?v=" + Date.now();
     status.textContent = "viewing " + p.title;
-    setFinalLink(p.file);                    // link follows the frame
+    setFinalLink(p.stem, p.file);            // link follows the frame
     side.classList.add("hidden");
     refreshProjects();                       // re-mark active
   }
@@ -215,6 +215,10 @@
     } catch {}
     status.textContent = "waiting for build events…";
   };
+  // abandonment reappraisal: stale in-progress builds (iteration window
+  // lapsed, no further events) age into "output ready" — re-run the
+  // list render periodically so this happens on screen without events
+  setInterval(refreshProjects, 60 * 1000);
 </script>
 <script type="module">
   // Right-hand frag pane: live shader swatches (same renderer as /frag),

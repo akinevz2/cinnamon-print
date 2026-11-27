@@ -31,17 +31,30 @@
  * If "columns" is omitted, three equal columns are derived from the
  * canvas. If "arrange" is absent entirely, defaults apply.
  */
-import { readFileSync, writeFileSync, existsSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const PROJECT = path.join(ROOT, "project");
-const LAYOUT = path.join(PROJECT, "layout.json");
+const STORE = path.join(ROOT, "project");
+
+// project stem: argv[3], else the .last-stem marker, else the sole project
+let stem = process.argv[3] ?? "";
+if (!stem) {
+  try { stem = readFileSync(path.join(STORE, ".last-stem"), "utf8").trim(); } catch {}
+}
+const dirs = () => existsSync(STORE)
+  ? readdirSync(STORE, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
+  : [];
+if (!stem) {
+  const available = dirs();
+  if (available.length === 1) stem = available[0];
+}
+const LAYOUT = path.join(STORE, stem, "layout.json");
 
 if (!existsSync(LAYOUT)) {
-  console.error(`missing ${LAYOUT}`);
+  console.error(`missing ${LAYOUT}\nusage: node scripts/layout.mjs check|arrange [stem]\nprojects in the store: ${dirs().join(", ") || "(store empty)"}`);
   process.exit(1);
 }
 const layout = JSON.parse(readFileSync(LAYOUT, "utf8"));
@@ -123,7 +136,7 @@ window.addEventListener("load", () => setTimeout(() => {
       "--headless=new", "--no-sandbox", "--disable-gpu",
       "--user-data-dir=" + path.join(tmp, "profile"),
       "--virtual-time-budget=4000", "--dump-dom", "file://" + file,
-    ], { cwd: PROJECT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    ], { cwd: STORE, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     const m = dom.match(/BOXES(\{.*\})/s);
     if (!m) return null;
     return JSON.parse(m[1]);

@@ -1,0 +1,19 @@
+{
+  "title": "IT IS TIME. YOU KNOW WHAT TIME. (AKINEVZ INTERNET RAMBLE)",
+  "canvas": {
+    "width": 1200,
+    "height": 1200,
+    "background": "#7a0b0b"
+  },
+  "elements": [
+    { "type": "fragment", "src": "fragment-example.png", "x": 0, "y": 0 },
+    { "type": "fragment", "src": "fragment-cheddar-static.png", "x": 0, "y": 0 },
+    { "type": "fragment", "src": "fragment-cheese-title-1.png", "x": 0, "y": 0 },
+    { "type": "fragment", "src": "fragment-cheese-title-2.png", "x": 0, "y": 0 },
+    { "type": "fragment", "src": "fragment-cheese-bright.png", "x": 0, "y": 0 },
+    { "type": "fragment", "src": "fragment-cheese-ramble.png", "x": 0, "y": 0 },
+    { "type": "fragment", "src": "fragment-cheese-ramble-tiled.png", "x": 0, "y": 0, "w": 1200 },
+    { "type": "fragment", "src": "fragment-cheese-headline.png", "x": 0, "y": 0, "w": 1200 },
+    { "type": "fragment", "src": "fragment-built-with-cinammon-print.png", "x": 30, "y": 1158, "w": 200 }
+  ]
+}

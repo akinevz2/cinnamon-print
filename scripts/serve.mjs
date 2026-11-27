@@ -14,7 +14,6 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const PROJECT = path.join(ROOT, "project");
 const RESOURCES = path.join(ROOT, "resources");
 const SCRIPTS = path.join(ROOT, "scripts");
-const OUTPUT = path.join(PROJECT, "output");
 const SHADERS = path.join(RESOURCES, "shaders");
 const FRAGMENTS = path.join(RESOURCES, "fragments");
 const PORT = process.env.PORT ?? 8899;
@@ -55,7 +54,7 @@ const server = http.createServer(async (req, res) => {
     const states = await progressMap();
     for (const p of Object.values(states)) res.write(`data: ${JSON.stringify(p)}\n\n`);
     try {
-      const lastStem = (await readFile(path.join(OUTPUT, ".last-stem"), "utf8")).trim();
+      const lastStem = (await readFile(path.join(PROJECT, ".last-stem"), "utf8")).trim();
       res.write(`data: ${JSON.stringify({ artifact: `${lastStem}.png`, stem: lastStem })}\n\n`);
     } catch {}
     req.on("close", () => cloudClients.delete(res));
@@ -107,7 +106,7 @@ const server = http.createServer(async (req, res) => {
       const moved = [];
       const quietMove = async (rel) => {
         const src = path.join(ROOT, rel);
-        if (!src.startsWith(path.join(ROOT, "project", "output")) &&
+        if (!src.startsWith(path.join(ROOT, "project")) &&
             !src.startsWith(path.join(ROOT, "resources", "shaders"))) throw new Error("untrashable path: " + rel);
         await stat(src);                                     // throws if absent — quiet skip
         const dst = path.join(TRASH, rel);
@@ -121,12 +120,10 @@ const server = http.createServer(async (req, res) => {
       };
       if (body.project) {
         const stem = String(body.project).replace(/[^a-z0-9._-]/gi, "");
-        for (const ext of ["png", "pdf", "json", "progress"])
-          await quietMove(`project/output/${stem}.${ext}`).catch(() => {});
-        // a trashed stem can no longer be the "last" one
+        await quietMove(`project/${stem}`);                  // whole project folder, 1:1
         try {
-          const ls = path.join(OUTPUT, ".last-stem");
-          if ((await readFile(ls, "utf8")).trim() === stem) await rename(ls, path.join(TRASH, "output/.last-stem"));
+          const ls = path.join(PROJECT, ".last-stem");
+          if ((await readFile(ls, "utf8")).trim() === stem) await rename(ls, path.join(TRASH, "project/.last-stem"));
         } catch {}
         cloudBroadcast({ projects: 1 });
       } else if (body.shader) {
@@ -165,6 +162,20 @@ const server = http.createServer(async (req, res) => {
       res.end(body);
     } catch {
       res.writeHead(404); res.end("cloud.html missing");
+    }
+    return;
+  }
+
+  // The composed-artifact preview page for the ACTIVE project (last-rendered
+  // stem): its compose.html is a build product inside the project folder.
+  if (req.url === "/compose.html") {
+    try {
+      const lastStem = (await readFile(path.join(PROJECT, ".last-stem"), "utf8")).trim();
+      const body = await readFile(path.join(PROJECT, lastStem, "compose.html"));
+      res.writeHead(200, { "Content-Type": MIME[".html"], "Cache-Control": "no-store" });
+      res.end(body);
+    } catch {
+      res.writeHead(404); res.end("no composed artifact yet — render a project first");
     }
     return;
   }
@@ -249,8 +260,8 @@ async function saveFragment(req, res) {
 }
 
 // ---- per-project build progress ------------------------------------------
-// scripts/progress.sh writes output/<stem>.progress (overwritten state, one
-// JSON object per stem: {stem, step, total, pct, label}); the watcher pushes
+// scripts/progress.sh writes project/<stem>/output/<stem>.progress (state,
+// one JSON object: {stem, step, total, pct, label, time}); the watcher pushes
 // updates to /cloud/events, and /api/progress returns the full state map for
 // page loads. cloud-step.sh emits one step per stamped instance; simple
 // agent projects emit 0/1 at prompt submission and 1/1 when output lands.
@@ -258,22 +269,15 @@ const PROGRESS_RE = /^(.+)\.progress$/;
 
 async function readStemProgress(stem) {
   try {
-    return JSON.parse(await readFile(path.join(OUTPUT, `${stem}.progress`), "utf8"));
+    return JSON.parse(await readFile(path.join(PROJECT, stem, "output", `${stem}.progress`), "utf8"));
   } catch {
     return null;
   }
 }
 
 async function progressMap() {
-  let files = [];
-  try {
-    files = (await readdir(OUTPUT)).filter((f) => PROGRESS_RE.test(f));
-  } catch {
-    return {};
-  }
   const map = {};
-  for (const f of files) {
-    const stem = f.replace(PROGRESS_RE, "$1");
+  for (const stem of projectStems()) {
     const p = await readStemProgress(stem).catch(() => null);
     if (p) map[stem] = p;
   }
@@ -290,40 +294,51 @@ function cloudBroadcast(obj) {
   for (const c of cloudClients) c.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
-// ---- project list: outputs on disk + their metadata sidecars --------------
-// Final artefacts = output/*.png without a step suffix (_NNN.png). Metadata
-// (title/prompt container) comes from the sibling <stem>.json sidecar.
+// ---- project store: one folder per project, 1-to-1 ------------------------
+// project/<stem>/layout.json + output/<stem>.png (+ .pdf, .progress).
+// Metadata (title/prompt) lives in project/<stem>/project.json.
+function projectStems() {
+  return existsSync(PROJECT)
+    ? readdirSync(PROJECT, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
+    : [];
+}
+
 async function listProjects() {
-  let files = [];
-  try {
-    files = (await readdir(OUTPUT)).filter((f) => /\.png$/i.test(f) && !/_\d+\.png$/.test(f));
-  } catch {
-    return [];
-  }
   // The last-rendered stem (written by compose.mjs after every successful
-  // render) is the one the console should open by default — file mtimes lie
-  // when unrelated builds touch output/.
+  // render) is the one the console should open by default — mtimes lie
+  // when unrelated builds touch the store.
   let lastStem = null;
   try {
-    lastStem = (await readFile(path.join(OUTPUT, ".last-stem"), "utf8")).trim() || null;
+    lastStem = (await readFile(path.join(PROJECT, ".last-stem"), "utf8")).trim() || null;
   } catch {}
   const projects = [];
-  for (const f of files) {
-    const stem = f.replace(/\.png$/i, "");
-    const full = path.join(OUTPUT, f);
+  for (const stem of projectStems()) {
+    const outDir = path.join(PROJECT, stem, "output");
+    let artifact = null, updated = null;
+    try {
+      const final = (await readdir(outDir)).find((f) => f === `${stem}.png`);
+      if (final) {
+        artifact = final;
+        const s = await stat(path.join(outDir, final));
+        updated = s.mtime.toISOString();
+      }
+    } catch {}
     let meta = {};
-    try { meta = JSON.parse(await readFile(path.join(OUTPUT, `${stem}.json`), "utf8")); } catch {}
-    const s = await stat(full).catch(() => null);
+    try { meta = JSON.parse(await readFile(path.join(PROJECT, stem, "project.json"), "utf8")); } catch {}
+    let layoutTitle = "";
+    try { layoutTitle = JSON.parse(await readFile(path.join(PROJECT, stem, "layout.json"), "utf8")).title ?? ""; } catch {}
     projects.push({
-      file: f,
-      title: meta.title ?? stem,
+      stem,
+      file: `${stem}.png`,
+      hasArtifact: !!artifact,
+      title: meta.title ?? layoutTitle ?? stem,
       prompt: meta.prompt ?? "",
-      updated: s ? s.mtime.toISOString() : null,
+      updated,
       last: stem === lastStem,
     });
   }
   /* the last-rendered project first, then newest-first by mtime */
-  return projects.sort((a, b) => (b.last - a.last) || (a.updated < b.updated ? 1 : -1));
+  return projects.sort((a, b) => (b.last - a.last) || ((a.updated ?? "") < (b.updated ?? "") ? 1 : -1));
 }
 
 function progressChanged(f) {

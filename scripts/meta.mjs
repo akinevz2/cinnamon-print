@@ -12,7 +12,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 
-const OUTPUT = path.resolve(import.meta.dirname, "..", "project", "output");
+const PROJECT_DIR = path.resolve(import.meta.dirname, "..", "project", process.env.FILE ?? "");
 const stem = process.env.FILE;
 
 if (!stem) {
@@ -20,7 +20,7 @@ if (!stem) {
   process.exit(1);
 }
 
-const sidecar = path.join(OUTPUT, `${stem}.json`);
+const sidecar = path.join(PROJECT_DIR, "project.json");
 
 if (!process.env.TITLE && !process.env.PROMPT) {
   if (existsSync(sidecar)) {

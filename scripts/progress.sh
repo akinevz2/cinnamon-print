@@ -10,7 +10,7 @@ set -euo pipefail
 
 stem=${1:?stem}; step=${2:?step}; total=${3:?total}; label=${4:-}
 
-dir="$(cd "$(dirname "$0")/.." && pwd)/project/output"
+dir="$(cd "$(dirname "$0")/.." && pwd)/project/$stem/output"
 mkdir -p "$dir"
 pct=$(( total > 0 ? step * 100 / total : 0 ))
 

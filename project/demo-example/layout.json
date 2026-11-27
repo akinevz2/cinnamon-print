@@ -1,0 +1,12 @@
+{
+  "title": "imagework composition",
+  "canvas": { "width": 1200, "height": 800, "background": "#101418" },
+  "fonts": [
+    { "file": "MyFont.ttf", "name": "MyFont" }
+  ],
+  "elements": [
+    { "type": "fragment", "src": "fragment-hero.png",     "x": 80,  "y": 120, "w": 480 },
+    { "type": "fragment", "src": "fragment-border.png",   "x": 0,   "y": 0,   "w": 1200 },
+    { "type": "text",     "text": "composed with imagework", "x": 600, "y": 140, "font": "MyFont", "size": 28, "color": "#e8e8e8", "weight": "bold" }
+  ]
+}

@@ -13,7 +13,7 @@
 # and explicit.
 set -u
 
-stem="$(cat project/output/.last-stem 2>/dev/null || true)"
+stem="$(cat project/.last-stem 2>/dev/null || true)"
 stem="${stem:-output}"
 echo "rebuilding latest artifact: $stem"
 mkdir -p logs

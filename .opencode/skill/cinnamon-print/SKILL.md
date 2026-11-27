@@ -18,8 +18,13 @@ description: >
 # cinnamon-print compose
 
 You are working inside the cinnamon-print container (nix-built, containing
-pandoc, node, chromium and opencode). The project root is `/work`,
-with `project/` holding the working files.
+pandoc, node, chromium and opencode). The project root is `/work`.
+`project/` is a PROJECT STORE: one folder per produced work, 1-to-1 —
+`project/<stem>/layout.json` (the composition), `project/<stem>/output/`
+(artifacts + progress), `project/<stem>/project.json` (title/prompt meta).
+cinnamon-print's own shared machinery lives at the store's top level
+(`project/templates/`, the console pages) — and `project/cinnamon-print/`
+holds the app's own artifacts when needful.
 
 ## Your responsibilities
 
@@ -33,7 +38,7 @@ with `project/` holding the working files.
 2. **Scan for fragments.** Enumerate every
    `resources/fragments/fragment*.png`
    (glob `fragment*.png`). Each one MUST end up with a logical assignment —
-   an entry in `project/layout.json` under `elements` with
+   an entry in `project/<stem>/layout.json` under `elements` with
    `{"type": "fragment", "src": "<filename>", "x", "y", optionally "w"}`.
 
 3. **Linting pass — always interactive with the user.** Before any render:
@@ -46,8 +51,8 @@ with `project/` holding the working files.
 
 4. **Render both artifacts after any layout/template change.**
    ```
-   node scripts/compose.mjs png <stem>   # -> project/output/<stem>.png
-   node scripts/compose.mjs pdf <stem>   # -> project/output/<stem>.pdf
+   node scripts/compose.mjs png <stem>   # -> project/<stem>/output/<stem>.png
+   node scripts/compose.mjs pdf <stem>   # -> project/<stem>/output/<stem>.pdf
    ```
    The user's Makefile exposes this as `make png` / `make pdf`.
 
@@ -63,16 +68,24 @@ with `project/` holding the working files.
    "weight"}`. Confirm wording and placement with the user before rendering
    if the request is ambiguous.
 
+6b. **New projects.** A new piece of work = a new folder: create
+   `project/<stem>/layout.json` (start from `project/layout.example.json`)
+   and render — the artifact, progress state and console entry follow
+   automatically from the folder. `project/.last-stem` tracks the
+   last-rendered stem for the whole store.
+
 7. **Geometric arrangement of text — DO NOT hand-place coordinates.**
    Hand-picked `x`/`y` values reliably overlap because rendered text
    height depends on wrapping and paragraph spacing that aren't visible
    in the JSON. Use the arranger instead:
    ```
-   node scripts/layout.mjs check     # lint: reports OVERLAP / OVERFLOW (exit 2)
-   node scripts/layout.mjs arrange   # re-stack all text: title + intro centered
-                                     # on top, heading+body pairs flowed into
-                                     # 3 balanced columns, canvas grown to fit
+   node scripts/layout.mjs check [stem]    # lint: OVERLAP / OVERFLOW (exit 2)
+   node scripts/layout.mjs arrange [stem]  # re-stack all text: title + intro
+                                           # centered on top, heading+body pairs
+                                           # into 3 balanced columns, canvas
+                                           # grown to fit
    ```
+   (stem defaults to the store's .last-stem, then the sole project)
    - `arrange` measures REAL rendered boxes with headless chromium and
      re-stacks using measured heights, so its output doesn't collide.
      It is safe to run repeatedly (idempotent grouping).
@@ -88,8 +101,10 @@ with `project/` holding the working files.
      before rendering.
 
 8. **Live preview.** During interactive sessions you may run
-   `node scripts/serve.mjs` (port 8899) so the user can watch the composed
-   page live; layout/fragment/template changes trigger automatic reload.
+   `node scripts/serve.mjs` (port 8899) so the user can watch everything
+   live at `/` (project console: latest artifact + per-project progress +
+   fragment library); layout/fragment/template changes trigger reload.
+   The composed-artifact preview (for the active project) is `/compose.html`.
 
 ## Generating NEW fragments — center tool-use on the application itself
 
@@ -188,7 +203,8 @@ for an image effect ImageMagick can't do. The limits:
 - hand-placing coordinates instead of `arrange` (see responsibilities §7)
 
 After generating: new files in `resources/fragments/` become lint subjects —
-assign them placements in `layout.json` (see the responsibilities above).
+assign them placements in the target project's `layout.json` (see the
+responsibilities above).
 
 ## Compositing guidance — procedural pieces: math first, pixels last
 
@@ -228,9 +244,9 @@ are an implementation detail; the composition is geometry.
 
 ## Session workflow
 
-1. Scan fragments; run the lint comparison (disk vs layout.json).
+1. Scan fragments; run the lint comparison (disk vs the project's layout.json).
 2. Discuss orphan/unplaced fragments with the user; propose positions.
-3. Edit `project/layout.json` (and the template if needed).
+3. Edit `project/<stem>/layout.json` (and the template if needed).
 4. Rebuild both `png` and `pdf` outputs.
 5. Show the user the rendered artifacts and iterate.
 

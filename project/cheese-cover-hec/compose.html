@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<!-- imagework pandoc template — MAINTAINED BY THE AGENT.
+     Must stay correct for BOTH render targets:
+       target=png -> fixed window, exact pixel canvas, no pagination
+       target=pdf -> A4/Letter-agnostic page sizing, canvas fits a page -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>IT IS TIME. YOU KNOW WHAT TIME. (AKINEVZ INTERNET RAMBLE)</title>
+  <style>
+    /* custom fonts injected from layout.json by compose.mjs */
+    
+
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+
+    /* png: exact-canvas screenshot */
+    body[data-target="png"] {
+      width: 1200px;
+      height: 1200px;
+      overflow: hidden;
+    }
+    /* pdf: one clean page, canvas fits a page */
+    body[data-target="pdf"] {
+      background: white;
+    }
+    @media print {
+      body { margin: 0; }
+      .canvas { break-inside: avoid; page-break-after: avoid; }
+    }
+
+    .fragment {
+      position: absolute;
+      image-rendering: auto;
+    }
+    .text {
+      position: absolute;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+  </style>
+  <script>
+    /* livereload hook: present only when served by serve.mjs */
+    if (new EventSource("/reload")) {
+      new EventSource("/reload").onmessage = () => location.reload();
+    }
+  </script>
+</head>
+<body class="png" data-target="png">
+<div class="canvas" style="width:1200px;height:1200px;background:#7a0b0b;position:relative;overflow:hidden;">
+<img src="../../resources/fragments/fragment-example.png" class="fragment" style="left:0px;top:0px;" alt="fragment-example.png" /> <img src="../../resources/fragments/fragment-cheddar-static.png" class="fragment" style="left:0px;top:0px;" alt="fragment-cheddar-static.png" /> <img src="../../resources/fragments/fragment-cheese-title-1.png" class="fragment" style="left:0px;top:0px;" alt="fragment-cheese-title-1.png" /> <img src="../../resources/fragments/fragment-cheese-title-2.png" class="fragment" style="left:0px;top:0px;" alt="fragment-cheese-title-2.png" /> <img src="../../resources/fragments/fragment-cheese-bright.png" class="fragment" style="left:0px;top:0px;" alt="fragment-cheese-bright.png" /> <img src="../../resources/fragments/fragment-cheese-ramble.png" class="fragment" style="left:0px;top:0px;" alt="fragment-cheese-ramble.png" /> <img src="../../resources/fragments/fragment-cheese-ramble-tiled.png" class="fragment" style="left:0px;top:0px;width:1200px;" alt="fragment-cheese-ramble-tiled.png" /> <img src="../../resources/fragments/fragment-cheese-headline.png" class="fragment" style="left:0px;top:0px;width:1200px;" alt="fragment-cheese-headline.png" /> <img src="../../resources/fragments/fragment-built-with-cinammon-print.png" class="fragment" style="left:30px;top:1158px;width:200px;" alt="fragment-built-with-cinammon-print.png" />
+</div>
+</body>
+</html>

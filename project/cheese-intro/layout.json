@@ -1,0 +1,37 @@
+{
+  "title": "IT IS TIME. YOU KNOW WHAT TIME.",
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "background": "#6d0808"
+  },
+  "lint": {
+    "requireFragmentAssignment": false
+  },
+  "fonts": [
+    {
+      "file": "BAHNSCHRIFT.TTF",
+      "name": "BAHNSCHRIFT"
+    }
+  ],
+  "elements": [
+    {
+      "type": "fragment",
+      "src": "fragment-cheddar-static.png",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "type": "fragment",
+      "src": "fragment-cheese-title-1.png",
+      "x": 352,
+      "y": 334
+    },
+    {
+      "type": "fragment",
+      "src": "fragment-cheese-title-2.png",
+      "x": 118,
+      "y": 616
+    }
+  ]
+}
