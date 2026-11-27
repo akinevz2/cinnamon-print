@@ -5,14 +5,17 @@
  * fragments, layout.json or the template change.
  */
 import http from "node:http";
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { watch } from "node:fs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PROJECT = path.join(ROOT, "project");
 const RESOURCES = path.join(ROOT, "resources");
+const SCRIPTS = path.join(ROOT, "scripts");
 const OUTPUT = path.join(PROJECT, "output");
+const SHADERS = path.join(RESOURCES, "shaders");
+const FRAGMENTS = path.join(RESOURCES, "fragments");
 const PROGRESS_LOG = path.join(OUTPUT, "cloud-progress.log");
 const PORT = process.env.PORT ?? 8899;
 
@@ -69,8 +72,36 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Frag Bench: shader list for the client-side WebGL renderer.
+  if (req.url === "/api/shaders") {
+    const shaders = await listShaders();
+    res.writeHead(200, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
+    res.end(JSON.stringify(shaders));
+    return;
+  }
+
+  // Frag Bench fallback save: write a rendered PNG into resources/fragments/
+  // as fragment-<name>.png (cross-browser; also works from the container).
+  if (req.url === "/api/fragments" && req.method === "POST") {
+    await saveFragment(req, res);
+    return;
+  }
+
+  // Frag Bench page.
+  if (req.url === "/frag" || req.url === "/frag/") {
+    try {
+      const body = await readFile(path.join(PROJECT, "frag.html"));
+      res.writeHead(200, { "Content-Type": MIME[".html"] });
+      res.end(body);
+    } catch {
+      res.writeHead(404); res.end("frag.html missing");
+    }
+    return;
+  }
+
   // Cloud fill preview page.
-  if (req.url === "/cloud" || req.url === "/cloud/") {    try {
+  if (req.url === "/cloud" || req.url === "/cloud/") {
+    try {
       const body = await readFile(path.join(PROJECT, "cloud.html"));
       res.writeHead(200, { "Content-Type": MIME[".html"] });
       res.end(body);
@@ -85,7 +116,9 @@ const server = http.createServer(async (req, res) => {
     ? path.join(PROJECT, "compose.html")
     : urlPath.startsWith("/resources/")
       ? path.join(RESOURCES, urlPath.slice("/resources/".length))
-      : path.join(PROJECT, urlPath);
+      : urlPath.startsWith("/scripts/")
+        ? path.join(SCRIPTS, urlPath.slice("/scripts/".length))
+        : path.join(PROJECT, urlPath);
   try {
     const s = await stat(file);
     if (!s.isFile()) throw new Error();
@@ -104,6 +137,48 @@ const server = http.createServer(async (req, res) => {
 
 function broadcast() {
   for (const c of clients) c.write("data: reload\n\n");
+}
+
+// ---- frag bench: shader listing + fragment upload --------------------------
+// Shaders live in resources/shaders/*.frag; mtime is the change token the
+// client diffs against so only new/updated files re-render.
+async function listShaders() {
+  try {
+    const files = (await readdir(SHADERS)).filter((f) => /\.frag$/i.test(f));
+    const shaders = [];
+    for (const name of files) {
+      const s = await stat(path.join(SHADERS, name)).catch(() => null);
+      if (s) shaders.push({ name, mtime: s.mtimeMs });
+    }
+    return shaders;
+  } catch {
+    return [];
+  }
+}
+
+async function saveFragment(req, res) {
+  try {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const { name, dataUrl } = JSON.parse(Buffer.concat(chunks).toString());
+    if (!/^[a-z0-9_-]{1,64}$/i.test(name ?? "")) throw new Error("bad name");
+    const m = (dataUrl ?? "").match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) throw new Error("body must be {name, dataUrl: png data-url}");
+    const buf = Buffer.from(m[1], "base64");
+    // PNG magic + sane size cap (fragments are small tiles by design).
+    if (buf.length < 8 || buf.length > 20 * 1024 * 1024) throw new Error("bad png size");
+    if (!buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
+      throw new Error("not a png");
+    const file = path.join(FRAGMENTS, `fragment-${name}.png`);
+    await writeFile(file, buf);
+    console.log("fragment saved:", file);
+    broadcast(); // compose.html preview picks the new fragment up
+    res.writeHead(200, { "Content-Type": MIME[".json"] });
+    res.end(JSON.stringify({ file: path.relative(ROOT, file) }));
+  } catch (e) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: e.message }));
+  }
 }
 
 // ---- cloud fill progress: tail project/output/cloud-progress.log ----------
@@ -197,6 +272,10 @@ for (const dir of [PROJECT, RESOURCES]) {
     // "output/cloud-progress.log") — cloud logic keys on the bare name.
     const base = path.basename(f ?? "");
     progressChanged(base);
+    if (f && /\.frag$/i.test(f)) {
+      console.log("shader changed:", f, "-> notifying", cloudClients.size, "bench client(s)");
+      cloudBroadcast({ shaders: 1 });
+    }
     if (!f || /\.(png|json|html|ttf|otf|css)$/i.test(f)) {
       console.log("changed:", f ?? "?", "-> reloading", clients.size, "client(s)");
       broadcast();

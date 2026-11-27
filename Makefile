@@ -1,6 +1,7 @@
 # imagework — artifact composition
 #
 # Usage:
+#   make                     # = make repl (default): container + serve + opencode TUI
 #   make png                 # single-shot rebuild -> project/output/output.png
 #   make pdf                 # single-shot rebuild -> project/output/output.pdf
 #   make png FILE=my         # rebuild -> project/output/my.png (extension follows target)
@@ -18,6 +19,8 @@
 #   make cloud COUNT=8 STEM=cloud-test   # quick 8-instance test render
 
 SHELL := /bin/bash
+# Bare `make` boots the full interactive environment (serve + opencode TUI).
+.DEFAULT_GOAL := repl
 
 # FILE is the artifact *stem*; the target decides the extension.
 # Defaults: `make png` -> output.png, `make pdf` -> output.pdf.
@@ -62,11 +65,22 @@ pdf: $(IMAGE_STAMP)
 ## ---- interactive development ------------------------------------------
 
 # "REPL" work: an opencode session with the imagework-compose skill loaded,
-# fully inside the nix container. Port 8899 is forwarded so a build started
-# from INSIDE the session can be previewed live in a host browser at
-# http://localhost:8899/cloud (same as builds started on the host).
+# fully inside the nix container. This is the DEFAULT `make` target: it runs
+# the livereload server in the background AND the opencode TUI in the
+# foreground, so the agent (and you) can preview renders, the cloud fill and
+# the Frag Bench live at http://localhost:8899 (/, /cloud, /frag).
+#
+# Config plumbing: the project's opencode.json / opencode.jsonc are visible
+# inside the container (the whole folder is mounted), and the user's
+# ~/.config/opencode is mounted READ-ONLY so their agent/model/theme tweaks
+# apply inside the session too. (opencode's writable state lives under
+# ~/.local/share/opencode — not mounted, so no host pollution.)
+OCFG_DIR  := $(HOME)/.config/opencode
+OCFG_MOUNT := $(shell test -d "$(OCFG_DIR)" && printf -- '-v %s:/root/.config/opencode:ro' "$(OCFG_DIR)")
+
 repl: $(IMAGE_STAMP)
-	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(IMAGE) bash -c "opencode"
+	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(OCFG_MOUNT) $(IMAGE) bash -c \
+		"node ./scripts/serve.mjs & server=$$!; opencode; rc=$$?; kill $$server 2>/dev/null; exit $$rc"
 
 # Livereload webserver for browser preview during composition.
 serve: $(IMAGE_STAMP)

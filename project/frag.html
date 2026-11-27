@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- Frag Bench UI — client-side WebGL shader gallery; logic in /scripts/frag-scan.js. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>imagework — frag bench</title>
+<style>
+  body { background:#05070a; color:#bbb; font-family:monospace; margin:0; padding:20px; }
+  h3 { color:#8af; font-weight:normal; letter-spacing:2px; margin:0 0 6px; }
+  #bench-status { color:#678; font-size:12px; margin-bottom:16px; }
+  #bench { display:flex; flex-wrap:wrap; gap:18px; }
+  .swatch-wrap { width:280px; }
+  .swatch-label { color:#8ac; font-size:12px; margin-bottom:4px; }
+  .swatch { border:1px solid #1c2a36; background:#0a1016; padding:6px; }
+  .swatch img { width:100%; display:block; cursor:grab; }
+  .swatch-save { display:inline-block; margin:6px 8px 0 0; color:#68f; font-size:12px;
+                 cursor:pointer; text-decoration:none; }
+  .frag-error { color:#f88; background:#180b0b; border:1px solid #421; padding:8px;
+                font-size:11px; max-height:240px; overflow:auto; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<h3>frag bench — live shader synthesis</h3>
+<div id="bench-status">connecting…</div>
+<div id="bench"></div>
+<script type="module" src="/scripts/frag-scan.js"></script>
+</body>
+</html>
