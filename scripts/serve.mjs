@@ -7,7 +7,7 @@
 import http from "node:http";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { watch } from "node:fs";
+import { watch, existsSync, readdirSync } from "node:fs";
 import { rename, mkdir, chmod } from "node:fs/promises";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -311,26 +311,30 @@ async function listProjects() {
   try {
     lastStem = (await readFile(path.join(PROJECT, ".last-stem"), "utf8")).trim() || null;
   } catch {}
+  // a project = a store folder with a layout.json or its own rendered artifact
   const projects = [];
   for (const stem of projectStems()) {
-    const outDir = path.join(PROJECT, stem, "output");
-    let artifact = null, updated = null;
+    const dir = path.join(PROJECT, stem);
+    const hasLayout = existsSync(path.join(dir, "layout.json"));
+    const outDir = path.join(dir, "output");
+    let hasArtifact = false, updated = null;
     try {
       const final = (await readdir(outDir)).find((f) => f === `${stem}.png`);
       if (final) {
-        artifact = final;
+        hasArtifact = true;
         const s = await stat(path.join(outDir, final));
         updated = s.mtime.toISOString();
       }
     } catch {}
+    if (!hasLayout && !hasArtifact) continue;   // not a project (app dirs, templates)
     let meta = {};
-    try { meta = JSON.parse(await readFile(path.join(PROJECT, stem, "project.json"), "utf8")); } catch {}
+    try { meta = JSON.parse(await readFile(path.join(dir, "project.json"), "utf8")); } catch {}
     let layoutTitle = "";
-    try { layoutTitle = JSON.parse(await readFile(path.join(PROJECT, stem, "layout.json"), "utf8")).title ?? ""; } catch {}
+    try { layoutTitle = JSON.parse(await readFile(path.join(dir, "layout.json"), "utf8")).title ?? ""; } catch {}
     projects.push({
       stem,
       file: `${stem}.png`,
-      hasArtifact: !!artifact,
+      hasArtifact,
       title: meta.title ?? layoutTitle ?? stem,
       prompt: meta.prompt ?? "",
       updated,
