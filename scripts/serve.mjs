@@ -63,7 +63,7 @@ const server = http.createServer(async (req, res) => {
 
   // Full per-stem progress state (for page loads; SSE carries deltas).
   if (req.url === "/api/progress") {
-    res.writeHead(200, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
+    res.writeHead(200, { "Connection": "close", "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
     res.end(JSON.stringify(await progressMap()));
     return;
   }
@@ -71,7 +71,7 @@ const server = http.createServer(async (req, res) => {
   // Project list (sidebar data): outputs + metadata sidecars.
   if (req.url === "/api/projects") {
     const projects = await listProjects();
-    res.writeHead(200, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
+    res.writeHead(200, { "Connection": "close", "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
     res.end(JSON.stringify(projects));
     return;
   }
@@ -79,7 +79,7 @@ const server = http.createServer(async (req, res) => {
   // Frag Bench: shader list for the client-side WebGL renderer.
   if (req.url === "/api/shaders") {
     const shaders = await listShaders();
-    res.writeHead(200, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
+    res.writeHead(200, { "Connection": "close", "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
     res.end(JSON.stringify(shaders));
     return;
   }
@@ -133,10 +133,10 @@ const server = http.createServer(async (req, res) => {
       } else {
         throw new Error("pass {\"project\": stem} or {\"shader\": name}");
       }
-      res.writeHead(200, { "Content-Type": MIME[".json"] });
+      res.writeHead(200, { "Connection": "close", "Content-Type": MIME[".json"] });
       res.end(JSON.stringify({ trashed: moved }));
     } catch (e) {
-      res.writeHead(400, { "Content-Type": "application/json" });
+      res.writeHead(400, { "Connection": "close", "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: e.message }));
     }
     return;
@@ -146,7 +146,7 @@ const server = http.createServer(async (req, res) => {
   if (req.url === "/frag" || req.url === "/frag/") {
     try {
       const body = await readFile(path.join(PROJECT, "frag.html"));
-      res.writeHead(200, { "Content-Type": MIME[".html"] });
+      res.writeHead(200, { "Connection": "close", "Content-Type": MIME[".html"] });
       res.end(body);
     } catch {
       res.writeHead(404); res.end("frag.html missing");
@@ -158,7 +158,7 @@ const server = http.createServer(async (req, res) => {
   if (req.url === "/cloud" || req.url === "/cloud/") {
     try {
       const body = await readFile(path.join(PROJECT, "cloud.html"));
-      res.writeHead(200, { "Content-Type": MIME[".html"] });
+      res.writeHead(200, { "Connection": "close", "Content-Type": MIME[".html"] });
       res.end(body);
     } catch {
       res.writeHead(404); res.end("cloud.html missing");
@@ -172,7 +172,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const lastStem = (await readFile(path.join(PROJECT, ".last-stem"), "utf8")).trim();
       const body = await readFile(path.join(PROJECT, lastStem, "compose.html"));
-      res.writeHead(200, { "Content-Type": MIME[".html"], "Cache-Control": "no-store" });
+      res.writeHead(200, { "Connection": "close", "Content-Type": MIME[".html"], "Cache-Control": "no-store" });
       res.end(body);
     } catch {
       res.writeHead(404); res.end("no composed artifact yet — render a project first");
@@ -183,7 +183,7 @@ const server = http.createServer(async (req, res) => {
   // The project console is the index: live build preview + fragment library.
   // (The composed-artifact preview stays available at /compose.html.)
   if (req.url === "/" || req.url === "") {
-    res.writeHead(302, { Location: "/cloud" });
+    res.writeHead(302, { "Connection": "close", Location: "/cloud" });
     res.end();
     return;
   }
@@ -201,7 +201,7 @@ const server = http.createServer(async (req, res) => {
     if (!s.isFile()) throw new Error();
     const body = await readFile(file);
     // Build artefacts mutate constantly — never let the browser cache them.
-    res.writeHead(200, {
+    res.writeHead(200, { "Connection": "close",
       "Content-Type": MIME[path.extname(file)] ?? "application/octet-stream",
       "Cache-Control": urlPath.startsWith("/output/") ? "no-store" : "no-cache",
     });
@@ -251,10 +251,10 @@ async function saveFragment(req, res) {
     await writeFile(file, buf);
     console.log("fragment saved:", file);
     broadcast(); // compose.html preview picks the new fragment up
-    res.writeHead(200, { "Content-Type": MIME[".json"] });
+    res.writeHead(200, { "Connection": "close", "Content-Type": MIME[".json"] });
     res.end(JSON.stringify({ file: path.relative(ROOT, file) }));
   } catch (e) {
-    res.writeHead(400, { "Content-Type": "application/json" });
+    res.writeHead(400, { "Connection": "close", "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: e.message }));
   }
 }
