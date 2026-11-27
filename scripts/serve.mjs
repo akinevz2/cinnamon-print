@@ -47,13 +47,14 @@ const server = http.createServer(async (req, res) => {
     res.write("retry: 1000\n\n");
     cloudClients.add(res);
     // Snapshot so a browser joining mid-build (or after it) is up to date:
-    // replay the last log line, then any final (non-step) png already on disk.
+    // replay the last log line, then the final artefact for the stem being
+    // built (NOT every stray png in output/ from previous projects).
     const lines = await readProgressLog();
     const last = lines.at(-1);
     if (last) res.write(`data: ${JSON.stringify(last)}\n\n`);
     try {
       for (const f of await readdir(OUTPUT))
-        if (/\.png$/i.test(f) && !/_\d+\.png$/.test(f))
+        if (/\.png$/i.test(f) && !/_\d+\.png$/.test(f) && cloudStem && f === `${cloudStem}.png`)
           res.write(`data: ${JSON.stringify({ artifact: f })}\n\n`);
     } catch {}
     req.on("close", () => cloudClients.delete(res));
@@ -103,6 +104,9 @@ function broadcast() {
 //   "<done>/<count> <pct> <mode> <artifact-name>"
 let logLines = [];
 let sentCount = 0;
+// Stem of the cloud currently being built (e.g. "banner"), derived from the
+// last progress-log line; used to scope final-artefact events to THIS build.
+let cloudStem = null;
 
 async function readProgressLog() {
   try {
@@ -111,10 +115,13 @@ async function readProgressLog() {
   } catch {
     logLines = [];
   }
-  return logLines.map((line) => {
+  const parsed = logLines.map((line) => {
     const m = line.match(/^(\d+)\/(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/);
     return m && { progress: 1, done: +m[1], count: +m[2], pct: +m[3], mode: m[4], artifact: m[5] };
   }).filter(Boolean);
+  const lastArtifact = parsed.at(-1)?.artifact;
+  cloudStem = lastArtifact ? lastArtifact.replace(/_\d+\.png$/, "") : null;
+  return parsed;
 }
 
 function cloudBroadcast(obj) {
@@ -139,7 +146,8 @@ function progressChanged(f) {
     });
     return;
   }
-  if (/\.png$/i.test(f ?? "") && !/_\d+\.png$/.test(f)) cloudBroadcast({ artifact: f });
+  if (/\.png$/i.test(f ?? "") && !/_\d+\.png$/.test(f) && cloudStem && f === `${cloudStem}.png`)
+    cloudBroadcast({ artifact: f });
 }
 
 for (const dir of [PROJECT, RESOURCES]) {
