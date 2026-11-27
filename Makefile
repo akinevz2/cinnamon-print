@@ -100,6 +100,11 @@ OCFG_KEY := $(shell test -n "$$RAREBOX_API_KEY" && printf -- '-e RAREBOX_API_KEY
 # is NOT mounted (live db, shared with --rm containers = corruption risk) —
 # so the staged config pins the preferred model explicitly.
 OCFG_MODEL ?= rarebox/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE
+# Session state (auth credentials, session history) lives in a named volume:
+# host auth is in the GNOME keyring (not mountable), so the repl authenticates
+# ONCE via `opencode auth login` inside a session and the volume persists it
+# across repl runs — without touching host state or the keyring.
+OCFG_STATE := -v cinnamon-print-opencode-state:/root/.local/share/opencode
 
 repl: $(IMAGE_STAMP)
 	@echo "Making your configs available inside the session"
@@ -110,7 +115,7 @@ repl: $(IMAGE_STAMP)
 	cp -a $(OCFG_STAGE)/opencode.jsonc $(OCFG_STAGE)/opencode.json; true
 # both opencode.json and opencode.jsonc are read and MERGED by opencode —
 # keep the pair identical or the stripped plugin sneaks back via the twin.
-	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) -v $(OCFG_STAGE):/mnt/opencode-cfg:ro $(OCFG_KEY) $(IMAGE) bash scripts/repl-session.sh
+	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(OCFG_STATE) -v $(OCFG_STAGE):/mnt/opencode-cfg:ro $(OCFG_KEY) $(IMAGE) bash scripts/repl-session.sh
 
 # Livereload webserver for browser preview during composition.
 serve: $(IMAGE_STAMP)
