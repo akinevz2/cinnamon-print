@@ -235,6 +235,13 @@ async function listProjects() {
   } catch {
     return [];
   }
+  // The last-rendered stem (written by compose.mjs after every successful
+  // render) is the one the console should open by default — file mtimes lie
+  // when unrelated builds touch output/.
+  let lastStem = null;
+  try {
+    lastStem = (await readFile(path.join(OUTPUT, ".last-stem"), "utf8")).trim() || null;
+  } catch {}
   const projects = [];
   for (const f of files) {
     const stem = f.replace(/\.png$/i, "");
@@ -247,9 +254,11 @@ async function listProjects() {
       title: meta.title ?? stem,
       prompt: meta.prompt ?? "",
       updated: s ? s.mtime.toISOString() : null,
+      last: stem === lastStem,
     });
   }
-  return projects.sort((a, b) => (a.updated < b.updated ? 1 : -1));
+  /* the last-rendered project first, then newest-first by mtime */
+  return projects.sort((a, b) => (b.last - a.last) || (a.updated < b.updated ? 1 : -1));
 }
 
 async function pumpProgress() {
