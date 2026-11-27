@@ -142,7 +142,10 @@ for an image effect ImageMagick can't do. The limits:
    python3 scripts/gen-banner-frag.py <font.ttf> "text" out.frag <scale> <fill-rgb> <outline-rgb> [pointsize] [gap]
    ```
    (bitmap text, 1px outline, transparent bg — see the banner frags for
-   output shape). Then `magick`-composite results, or move the PNG into
+   output shape). **Host-only**: gen-banner-frag.py needs ImageMagick +
+   python3, which the container does not ship — inside the container use
+   `scripts/font-to-glsl.sh` (chromium-based glyph rasterizer, same output
+   format) instead. Then `magick`-composite results, or move the PNG into
    `resources/fragments/fragment*.png` so it enters the normal layout flow.
 
 3. **Monte-Carlo cloud fill (procedural texture backgrounds).**
