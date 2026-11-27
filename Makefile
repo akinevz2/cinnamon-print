@@ -84,11 +84,15 @@ pdf: $(IMAGE_STAMP)
 # resolved ~/dots directory when it exists instead.
 OCFG_STOW := $(HOME)/dots/opencode/.config/opencode
 OCFG_DIR  := $(shell test -d "$(OCFG_STOW)" && echo "$(OCFG_STOW)" || echo "$(HOME)/.config/opencode")
-OCFG_MOUNT := $(shell test -d "$(OCFG_DIR)" && printf -- '-v %s:/root/.config/opencode:ro' "$(OCFG_DIR)")
+# Mounted READ-ONLY at a staging path: opencode writes runtime state (e.g.
+# service.json) into its config dir, so the session copies the staged config
+# to a writable /root/.config/opencode at startup — your tweaks apply, the
+# host stays clean, and runtime state is discarded with the container.
+OCFG_MOUNT := $(shell test -d "$(OCFG_DIR)" && printf -- '-v %s:/mnt/opencode-cfg:ro' "$(OCFG_DIR)")
 
 repl: $(IMAGE_STAMP)
 	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(OCFG_MOUNT) $(IMAGE) bash -c \
-		"node ./scripts/serve.mjs & server=$$!; opencode; rc=$$?; kill $$server 2>/dev/null; exit $$rc"
+		"mkdir -p /root/.config/opencode && cp -a /mnt/opencode-cfg/. /root/.config/opencode/ 2>/dev/null; node ./scripts/serve.mjs & server=$$!; opencode; rc=$$?; kill $$server 2>/dev/null; exit $$rc"
 
 # Livereload webserver for browser preview during composition.
 serve: $(IMAGE_STAMP)
