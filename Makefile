@@ -106,17 +106,37 @@ OCFG_MODEL ?= rarebox/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE
 # across repl runs — without touching host state or the keyring.
 OCFG_STATE := -v cinnamon-print-opencode-state:/root/.local/share/opencode
 
+# Session state + config persist in the REPO-LOCAL cache dir
+# (.opencode/cache/, gitignored): auth credentials, session history, the
+# whole client config state — seeded once from the host (~/.config/opencode,
+# dereferenced + host-only plugins stripped), then MAINTAINED INSIDE the
+# container across repl runs (resumable sessions). Host keyring and host
+# state db are never touched.
+OCFG_CACHE := $(CURDIR)/.opencode/cache
+
 repl: $(IMAGE_STAMP)
 	@echo "Making your configs available inside the session"
-	@rm -rf $(OCFG_STAGE) && cp -aL $(HOME)/.config/opencode $(OCFG_STAGE) 2>/dev/null; true
-	@rm -rf $(OCFG_STAGE)/opencode-hlwm-orchestrator; \
-	sed -i -E 's/,?[[:space:]]*"\.\/opencode-hlwm-orchestrator"//' $(OCFG_STAGE)/opencode.jsonc 2>/dev/null; \
-	node -e "const f='$(OCFG_STAGE)/opencode.jsonc';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.tui=Object.assign({theme:'herbst-purple'},j.tui);j.model=j.model||'$(OCFG_MODEL)';fs.writeFileSync(f,JSON.stringify(j,null,2))" 2>/dev/null; \
-	cp -a $(OCFG_STAGE)/opencode.jsonc $(OCFG_STAGE)/opencode.json; true
-# both opencode.json and opencode.jsonc are read and MERGED by opencode —
-# keep the pair identical or the stripped plugin sneaks back via the twin.
+	@mkdir -p $(OCFG_CACHE)/config $(OCFG_CACHE)/state
+	@if [ ! -f "$(OCFG_CACHE)/config/opencode.jsonc" ]; then \
+		echo "  first run: seeding the container profile from your host config"; \
+		rm -rf $(OCFG_STAGE) && cp -aL $(HOME)/.config/opencode $(OCFG_STAGE) 2>/dev/null; \
+		rm -rf $(OCFG_STAGE)/opencode-hlwm-orchestrator; \
+		sed -i -E 's/,?[[:space:]]*"\.\/opencode-hlwm-orchestrator"//' $(OCFG_STAGE)/opencode.jsonc 2>/dev/null; \
+		node -e "const f='$(OCFG_STAGE)/opencode.jsonc';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.tui=Object.assign({theme:'herbst-purple'},j.tui);j.model=j.model||'$(OCFG_MODEL)';fs.writeFileSync(f,JSON.stringify(j,null,2))" 2>/dev/null; \
+		cp -a $(OCFG_STAGE)/opencode.jsonc $(OCFG_STAGE)/opencode.json; \
+		cp -a $(OCFG_STAGE)/. $(OCFG_CACHE)/config/; \
+	else \
+		echo "  using the persisted container profile"; \
+	fi
+	@if [ ! -f "$(OCFG_CACHE)/state/opencode.db" ] && docker volume inspect cinnamon-print-opencode-state >/dev/null 2>&1; then \
+		echo "  migrating session state from the old named volume"; \
+		docker run --rm -v cinnamon-print-opencode-state:/from -v $(OCFG_CACHE)/state:/to cinnamon-print bash -c 'cp -a /from/. /to/ 2>/dev/null; true'; \
+	fi
 	@echo "launching container on port 8899"
-	@$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(OCFG_STATE) -v $(OCFG_STAGE):/mnt/opencode-cfg:ro $(OCFG_KEY) $(IMAGE) bash scripts/repl-session.sh
+	@$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) \
+		-v "$(OCFG_CACHE)/config:/root/.config/opencode" \
+		-v "$(OCFG_CACHE)/state:/root/.local/share/opencode" \
+		$(OCFG_KEY) $(IMAGE) bash scripts/repl-session.sh
 
 # Livereload webserver for browser preview during composition.
 serve: $(IMAGE_STAMP)

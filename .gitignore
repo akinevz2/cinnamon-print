@@ -15,5 +15,9 @@ imagework.zip
 .local/
 node_modules/
 
+# opencode repl profile (auth, sessions, config state) — persists between
+# repl runs, lives in the repo dir but is never committed
+.opencode/cache/
+
 # windows zone-identifier droppings
-*Zone.Identifier
+*Zone.Identifier*
