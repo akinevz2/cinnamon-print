@@ -1,5 +1,7 @@
 # intermediates & artifacts
 project/output/*
+# ...but metadata sidecars are versioned (projects sidebar content)
+!project/output/*.json
 project/compose.html
 project/compose.body.html
 project/compose-measure.html
