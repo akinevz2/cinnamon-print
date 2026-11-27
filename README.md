@@ -120,6 +120,8 @@ cinnamon-print/
     repl-session.sh         # in-container session orchestration (rebuild -> serve -> opencode -> teardown)
     progress.sh             # per-project build-progress primitive (<stem>.progress state)
     cloud-step.sh           # one monte-carlo cloud-fill step (progress via progress.sh)
+    pngio.mjs               # zero-dep 8-bit RGBA PNG decode/encode (node zlib)
+    trace-cutout.mjs        # trace a character out of a scene -> cutout + background fragments
     meta.mjs                # per-output title/prompt metadata sidecars
     frag-render.sh          # .frag -> transparent png (headless chromium, container-native)
     font-to-glsl.sh         # ttf -> GLSL bitmap glyph rows (chromium-based, container-native)
@@ -147,6 +149,7 @@ cinnamon-print/
     fragments/              # your fragment*.png components go here
     shaders/                # agent-authored .frag shaders, watched live by the bench
     fonts/                  # custom .ttf/.otf fonts go here
+    ship-crew.trace.json    # worked-example trace hints for trace-cutout.mjs
     banner.png              # hero render, referenced by the README
   .opencode/
     skill/cinnamon-print/   # skill loaded in interactive sessions (mounted in)

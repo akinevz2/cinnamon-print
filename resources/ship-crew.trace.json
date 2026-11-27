@@ -1,0 +1,27 @@
+{
+  "comment": "trace hints for resources/ship-crew.png — a Forsaken crew member in a red hood, black robe and bone pauldrons, carrying a long pole with a blue blade, inside a wood-plank ship interior. Geometry below was authored from zoomed mask-overlay iterations of scripts/trace-cutout.mjs --debug. Reproduce: node scripts/trace-cutout.mjs resources/ship-crew.png resources/ship-crew.trace.json cut.png bg.png",
+  "pole": { "from": [202, 232], "to": [40, 462], "halfWidth": 8 },
+  "seedBoxes": [
+    [122, 209, 174, 345],
+    [196, 209, 233, 240],
+    [35, 413, 75, 467],
+    [81, 381, 102, 408],
+    [126, 472, 143, 514],
+    [144, 480, 148, 496],
+    [125, 487, 128, 500],
+    [58, 554, 94, 572],
+    [158, 548, 196, 572],
+    [165, 375, 200, 448]
+  ],
+  "forceBoxes": [
+    [88, 392, 146, 415]
+  ],
+  "classify": {
+    "red": { "minR": 55, "overG": 2.4, "overB": 2.1 },
+    "bone": { "minR": 110, "minG": 100, "minB": 80, "maxRG": 30, "maxGB": 70 },
+    "dimBone": { "minR": 85, "minB": 55, "bOverR": 0.42, "gOverR": 0.55, "maxRG": 30 },
+    "blue": { "minB": 70, "overR": 15, "overG": 8 },
+    "dressDark": { "maxV": 105, "bTolerance": -2 },
+    "wood": { "rbGap": 13, "minR": 42, "gSlack": 6 }
+  }
+}
