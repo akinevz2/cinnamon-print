@@ -72,7 +72,10 @@ test("check reports OVERLAP and exits 2 on colliding elements", () => {
 
 test("check reports OVERFLOW when an element exits the canvas", () => {
   withLayout([
-    textEl("off the edge", 1100, 700), // 1200x800 canvas: spills right/bottom
+    // long enough to overflow 1200px from x=1100 in ANY font metric
+    // (a short probe string once fit inside the canvas under a narrower
+    // fallback font and made this test font-environment-dependent)
+    textEl("this block of body text is deliberately long enough to run well past the right edge of the canvas", 1100, 700),
   ], () => {
     const r = runLayout("check");
     assert.equal(r.status, 2);
