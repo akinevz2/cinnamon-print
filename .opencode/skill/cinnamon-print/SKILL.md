@@ -5,9 +5,12 @@ description: >
   fragment*.png components, compose and overlay them onto an output
   artifact (png or pdf) via the maintained Pandoc template, perform a
   linting pass with the user so every fragment has a logical assignment,
-  and place custom fonts and custom text elements interactively.
-  Use whenever the user asks to compose, rebuild, lint, or arrange
-  fragments/output artifacts in cinnamon-print.
+  and place custom fonts and custom text elements interactively. Also
+  covers GENERATING new fragments intrinsically: GLSL shaders via the
+  Frag Bench or the headless frag renderer, bitmap text via the font
+  rasterizer, monte-carlo cloud fills — never by installing anything.
+  Use whenever the user asks to compose, rebuild, lint, arrange, or
+  GENERATE fragments/output artifacts in cinnamon-print.
 ---
 
 # cinnamon-print compose
@@ -85,6 +88,55 @@ with `project/` holding the working files.
 8. **Live preview.** During interactive sessions you may run
    `node scripts/serve.mjs` (port 8899) so the user can watch the composed
    page live; layout/fragment/template changes trigger automatic reload.
+
+## Generating NEW fragments — use the intrinsic machinery, never install
+
+**HARD RULE: never install anything.** No `apt install`, no `npm install`,
+no puppeteer, no chromium download. The container already ships headless
+chromium (the compose pipeline drives it directly via CLI), ImageMagick
+(`magick`), node, pandoc and opencode. "I need a browser to render this"
+is always wrong here — the browser is already wired in.
+
+New fragments are generated three intrinsic ways:
+
+1. **GLSL shader → Frag Bench (live, user-in-the-loop).** Write a `.frag`
+   file into `resources/shaders/` — it is picked up live by the Frag Bench
+   tab (`localhost:8899/frag`), compiled in-browser into an `<img>` swatch.
+   The user drags keepers straight into `resources/fragments/` as
+   `fragment*.png` (native drag-out, or the per-swatch "→ fragments"
+   button). Read `resources/shaders/SHADER-NOTES.md` FIRST — it documents
+   the Y-axis flip gotcha, the available uniforms (`u_resolution`,
+   `u_time`, `u_seed`) and the bitmap-text pattern (GLSL has no strings).
+   Working examples: `example.frag`, `banner-title.frag`.
+
+2. **GLSL shader → headless rasterization (agent-driven, no user needed).**
+   Render any `.frag` to a transparent PNG without a browser session:
+   ```
+   scripts/frag-render.sh resources/shaders/foo.frag <width> <height> out.png [seed]
+   ```
+   (headless chromium + `scripts/frag-headless.html`; deterministic
+   straight-alpha output). For text-bearing shaders, generate the GLSL
+   from a TTF instead of hand-drawing glyphs:
+   ```
+   python3 scripts/gen-banner-frag.py <font.ttf> "text" out.frag <scale> <fill-rgb> <outline-rgb> [pointsize] [gap]
+   ```
+   (bitmap text, 1px outline, transparent bg — see the banner frags for
+   output shape). Then `magick`-composite results, or move the PNG into
+   `resources/fragments/fragment*.png` so it enters the normal layout flow.
+
+3. **Monte-Carlo cloud fill (procedural texture backgrounds).**
+   ```
+   make cloud FILL_SRC=resources/<src>.png STEM=<stem> [COUNT=256] [CANVAS=3000] [BANNER_W=2560] [BANNER_H=1440]
+   ```
+   Stamps COUNT randomly-rotated instances onto black with per-step
+   whole-canvas shear/rotate (progress logs to `project/output/cloud-progress.log`,
+   live preview on `/cloud`), then center-crops to the banner size.
+   `scripts/cloud-step.sh` holds the per-step logic — transparency is
+   fuzz-blitted from black pixels only (never luminance-alpha: it dims
+   the art), stamps carry soft silhouette shadows.
+
+After generating: new files in `resources/fragments/` become lint subjects —
+assign them placements in `layout.json` (see the responsibilities above).
 
 ## Session workflow
 
