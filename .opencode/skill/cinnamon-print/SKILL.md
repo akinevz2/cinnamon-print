@@ -175,6 +175,11 @@ for an image effect ImageMagick can't do. The limits:
      the render completes — the console shows a 0/1 → 1/1 bar per project.
    - **Multi-step builds** (e.g. monte-carlo clouds): one emission per step
      (`cloud-step.sh` already does this) — the console shows N/total.
+   - **Iterative rendering with unknown round count** (render → inspect →
+     decide whether to refine again): emit against a percent scale —
+     `scripts/progress.sh <stem> 45 100 "iterating"` — then close with
+     `1 1 "output ready"`. The bar adapts to whatever you emit; no project
+     registration or wiring needed.
    State persists in `output/<stem>.progress` (state file, gitignored).
 
 **Anti-patterns (these signal you skipped the intent-first step):**
