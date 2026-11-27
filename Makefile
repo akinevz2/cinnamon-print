@@ -97,7 +97,8 @@ OCFG_STAGE := /tmp/cinnamon-print-cfg
 OCFG_KEY := $(shell test -n "$$RAREBOX_API_KEY" && printf -- '-e RAREBOX_API_KEY=%s' "$$RAREBOX_API_KEY")
 
 repl: $(IMAGE_STAMP)
-	rm -rf $(OCFG_STAGE) && cp -aL $(HOME)/.config/opencode $(OCFG_STAGE) 2>/dev/null; true
+	@echo "Making your configs available inside the session"
+	@rm -rf $(OCFG_STAGE) && cp -aL $(HOME)/.config/opencode $(OCFG_STAGE) 2>/dev/null; true
 	@rm -rf $(OCFG_STAGE)/opencode-hlwm-orchestrator; \
 	sed -i -E 's/,?[[:space:]]*"\.\/opencode-hlwm-orchestrator"//' $(OCFG_STAGE)/opencode.jsonc 2>/dev/null; \
 	node -e "const f='$(OCFG_STAGE)/opencode.jsonc';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.tui=Object.assign({theme:'herbst-purple'},j.tui);fs.writeFileSync(f,JSON.stringify(j,null,2))" 2>/dev/null; true
