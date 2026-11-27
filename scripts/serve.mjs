@@ -111,6 +111,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // The project console is the index: live build preview + fragment library.
+  // (The composed-artifact preview stays available at /compose.html.)
+  if (req.url === "/" || req.url === "") {
+    res.writeHead(302, { Location: "/cloud" });
+    res.end();
+    return;
+  }
+
   const urlPath = decodeURIComponent(new URL(req.url, "http://x").pathname);
   const file = path.normalize(urlPath) === "/"
     ? path.join(PROJECT, "compose.html")
