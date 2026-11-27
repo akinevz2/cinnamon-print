@@ -8,9 +8,11 @@ description: >
   and place custom fonts and custom text elements interactively. Also
   covers GENERATING new fragments intrinsically: GLSL shaders via the
   Frag Bench or the headless frag renderer, bitmap text via the font
-  rasterizer, monte-carlo cloud fills — never by installing anything.
-  Use whenever the user asks to compose, rebuild, lint, arrange, or
-  GENERATE fragments/output artifacts in cinnamon-print.
+  rasterizer, monte-carlo cloud fills. Tool-use is intent-first: center
+  on the application's own machinery; extra installs are allowed within
+  limit (session-scoped, additive) but never as a duplicate of built-in
+  machinery. Use whenever the user asks to compose, rebuild, lint,
+  arrange, or GENERATE fragments/output artifacts in cinnamon-print.
 ---
 
 # cinnamon-print compose
@@ -89,15 +91,34 @@ with `project/` holding the working files.
    `node scripts/serve.mjs` (port 8899) so the user can watch the composed
    page live; layout/fragment/template changes trigger automatic reload.
 
-## Generating NEW fragments — use the intrinsic machinery, never install
+## Generating NEW fragments — center tool-use on the application itself
 
-**HARD RULE: never install anything.** No `apt install`, no `npm install`,
-no puppeteer, no chromium download. The container already ships headless
-chromium (the compose pipeline drives it directly via CLI), ImageMagick
-(`magick`), node, pandoc and opencode. "I need a browser to render this"
-is always wrong here — the browser is already wired in.
+**Intent-first rule.** When the user asks for *any* artifact, texture,
+text render or composition, your first job is to map their intent onto
+the machinery this project already ships — not to reach for external
+tooling. Diagnose the intent, pick the intrinsic path below, and only
+fall back to installing when you can name what's missing.
 
-New fragments are generated three intrinsic ways:
+**HARD RULE (narrow, not blanket): never re-implement what's already
+built in.** Do not install puppeteer, playwright or a chromium binary —
+the container ships headless chromium and the pipeline already drives it
+(`compose.mjs`, `frag-render.sh`). Installing a *duplicate* of built-in
+machinery is always wrong, even "temporarily".
+
+**Installing additional resources is allowed, within limit.** Small,
+session-scoped additions for genuine gaps are fine — e.g. `npm install`
+a parser for a one-off format conversion, `apt install` a CLI filter
+for an image effect ImageMagick can't do. The limits:
+
+- session-scoped by default: disposable additions inside the running
+  container are fine; do NOT bake new dependencies into `Dockerfile` /
+  `flake.nix` / `Makefile` without asking the user first (that changes
+  the reproducible environment everyone gets).
+- additive, not replacing: an install may EXTEND the pipeline, never
+  substitute for it.
+- reversible: prefer things a container restart washes away.
+
+**The intrinsic paths — consult before any install:**
 
 1. **GLSL shader → Frag Bench (live, user-in-the-loop).** Write a `.frag`
    file into `resources/shaders/` — it is picked up live by the Frag Bench
@@ -134,6 +155,19 @@ New fragments are generated three intrinsic ways:
    `scripts/cloud-step.sh` holds the per-step logic — transparency is
    fuzz-blitted from black pixels only (never luminance-alpha: it dims
    the art), stamps carry soft silhouette shadows.
+
+4. **The compose pipeline itself** (`make png` / `make pdf`, lint,
+   arrange, livereload — responsibilities below) covers placement,
+   typography and both render targets. Image transforms between steps
+   are one `magick` invocation — crop, scale, tint, flatten, append.
+
+**Anti-patterns (these signal you skipped the intent-first step):**
+- reaching for puppeteer/playwright to "drive a browser" — the pipeline
+  already does exactly that
+- installing chromium/chrome — present in the image
+- re-implementing lint/arrange/render as ad-hoc scripts instead of
+  `layout.mjs` / `compose.mjs`
+- hand-placing coordinates instead of `arrange` (see responsibilities §7)
 
 After generating: new files in `resources/fragments/` become lint subjects —
 assign them placements in `layout.json` (see the responsibilities above).
