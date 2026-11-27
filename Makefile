@@ -110,8 +110,7 @@ repl: $(IMAGE_STAMP)
 	cp -a $(OCFG_STAGE)/opencode.jsonc $(OCFG_STAGE)/opencode.json; true
 # both opencode.json and opencode.jsonc are read and MERGED by opencode —
 # keep the pair identical or the stripped plugin sneaks back via the twin.
-	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) -v $(OCFG_STAGE):/mnt/opencode-cfg:ro $(OCFG_KEY) $(IMAGE) bash -c \
-		"mkdir -p /root/.config/opencode && cp -a /mnt/opencode-cfg/. /root/.config/opencode/; stem=$$(cat project/output/.last-stem 2>/dev/null || echo output); echo rebuilding latest artifact: $$stem; node ./scripts/compose.mjs png $$stem >>/tmp/serve.log 2>&1; node ./scripts/serve.mjs >>/tmp/serve.log 2>&1 & server=$$!; opencode; rc=$$?; kill $$server 2>/dev/null; [ "$$rc" != 0 ] && tail -n 20 /tmp/serve.log; exit $$rc"
+	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) -v $(OCFG_STAGE):/mnt/opencode-cfg:ro $(OCFG_KEY) $(IMAGE) bash scripts/repl-session.sh
 
 # Livereload webserver for browser preview during composition.
 serve: $(IMAGE_STAMP)

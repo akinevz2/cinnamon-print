@@ -126,6 +126,9 @@ execFileSync("pandoc", pandocArgs, { cwd: PROJECT, stdio: "inherit" });
 
 /* remember the last-rendered stem — `make repl` uses it to rebuild the
    latest artifact on session start without guessing "most recent file" */
+console.log(process.exitCode ? "compose finished WITH LINT ERRORS (exit 2)" : `wrote ${out}`);
+/* remember the stem only after a render actually produced the file —
+   `make repl` reads this to rebuild the latest artifact on session start */
 writeFileSync(path.join(PROJECT, "output", ".last-stem"), stem);
 
 /* pandoc writes each line on its own source line inside the div; under
