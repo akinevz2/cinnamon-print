@@ -12,8 +12,30 @@ a docker-in-a-folder composition package: give it fragment images, text, fonts a
 
 ## what it makes
 
-<!-- TODO: an excerpt of project/layout.json beside the png it produced.
-     one real example is worth the rest of this page. -->
+you describe a layout (`project/layout.json` — the full starter is
+`project/layout.example.json`):
+
+```json
+{
+  "canvas": { "width": 800, "height": 500, "background": "#14141e" },
+  "fonts": [{ "file": "ComicMono.ttf", "name": "ComicMono" }],
+  "elements": [
+    { "type": "text", "text": "hello, cinnamon-print",
+      "x": 40, "y": 40, "width": 720, "align": "center",
+      "font": "ComicMono", "size": 32, "color": "#8cbfff" },
+    { "type": "text", "text": "describe it, an agent places it, your browser renders it",
+      "x": 40, "y": 120, "width": 720, "align": "center",
+      "font": "ComicMono", "size": 16, "color": "#feef69" }
+  ]
+}
+```
+
+…and get this (one `make png`; `arrange` measured and stacked the text,
+the footer is pinned outside the flow):
+
+<p align="center">
+  <img src="resources/example-demo.png" alt="a layout.json rendered to png by cinnamon-print" width="400">
+</p>
 
 ## try it
 
@@ -40,9 +62,11 @@ the only prerequisite is [docker](https://docs.docker.com/get-docker/). everythi
 
 | works today | still being sanded |
 | :--- | :--- |
-| single-shot png and pdf (`make png` / `make pdf`) | linux agent REPL (experimental) |
-| layout lint (`make check-layout`) and auto-stacking (`make arrange`) | frag bench: live shader synthesis |
-| livereload preview on `localhost:8899` (`make serve`) | linux agent REPL (experimental) |
+| single-shot png and pdf (`make png` / `make pdf`) | frag bench drag-to-compose flow |
+| layout lint (`make check-layout`) and auto-stacking (`make arrange`) with pinned elements | linux agent REPL: needs a real tty, first-run auth inside the tui |
+| livereload preview on `localhost:8899` (`make serve`) | windows path (`requirements.bat` + `run.bat`) is new — untested in the wild |
+| persistent repl sessions: config + auth + history survive restarts (`.opencode/cache/`, gitignored) | |
+| frag bench: live shader synthesis, headless shader/font rasterization, monte-carlo cloud fill | |
 
 **windows**: run `requirements.bat` once (installs GNU Make + Docker Desktop via
 winget), then `run.bat` — it starts the docker engine if needed, builds the image
