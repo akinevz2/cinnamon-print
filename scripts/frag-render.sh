@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# frag-render.sh — rasterize a .frag to a transparent PNG via headless Chrome.
+# frag-render.sh — rasterize a .frag to a transparent PNG via headless chromium.
 # Usage: scripts/frag-render.sh <shader.frag> <width> <height> <out.png> [seed]
 #
-# Deterministic: the page renders the shader to an offscreen canvas and
-# embeds the PNG as a dataURL; we extract it from chrome's DOM dump —
-# no compositor/screenshot races.
+# Container-native: node + chromium only (no python/imagemagick). The page
+# renders the shader to an offscreen canvas and embeds the PNG as a dataURL;
+# we extract it from chromium's DOM dump — no compositor/screenshot races.
 set -euo pipefail
 
 SHADER=$1; W=$2; H=$3; OUT=$4; SEED=${5:-}
@@ -12,30 +12,38 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 TMP=$(mktemp --tmpdir="${TMPDIR:-/tmp/opencode}" frag-render-XXXXXX.html)
 DOM=$(mktemp --tmpdir="${TMPDIR:-/tmp/opencode}" frag-dom-XXXXXX.html)
 
-python3 - "$SHADER" "$HERE/frag-headless.html" "$TMP" "$W" "$H" "$SEED" <<'PY'
-import json, sys, pathlib
-shader, template, out, w, h, seed = sys.argv[1:7]
-src = pathlib.Path(shader).read_text()
-html = pathlib.Path(template).read_text()
-cfg = json.dumps({"w": int(w), "h": int(h), "seed": float(seed) if seed else None})
-html = html.replace("//FRAG_SRC_PLACEHOLDER//", src).replace("//CFG_PLACEHOLDER//", cfg)
-pathlib.Path(out).write_text(html)
-PY
+node -e '
+  const fs = require("fs");
+  const [template, out, shader, w, h, seed] = process.argv.slice(1);
+  const src = fs.readFileSync(shader, "utf8");
+  let html = fs.readFileSync(template, "utf8");
+  const cfg = JSON.stringify({ w: +w, h: +h, seed: seed ? +seed : null });
+  html = html.replace("//FRAG_SRC_PLACEHOLDER//", src).replace("//CFG_PLACEHOLDER//", cfg);
+  fs.writeFileSync(out, html);
+' "$HERE/frag-headless.html" "$TMP" "$SHADER" "$W" "$H" "$SEED"
 
-google-chrome --headless --disable-gpu --no-sandbox \
+CHROME=${CHROME_BIN:-$(command -v google-chrome || command -v chromium || command -v chromium-browser)}
+[ -n "$CHROME" ] || { echo "no chromium found (set CHROME_BIN)" >&2; exit 1; }
+
+"$CHROME" --headless --disable-gpu --no-sandbox \
   --virtual-time-budget=3000 \
   --dump-dom "file://$TMP" > "$DOM" 2>/dev/null || true
 
-python3 - "$DOM" "$OUT" <<'PY'
-import base64, re, sys
-dom, out = sys.argv[1:3]
-html = open(dom).read()
-m = re.search(r'DATAURL:data:image/png;base64,([A-Za-z0-9+/=]+)', html)
-if not m:
-    err = re.search(r'RENDER_ERROR:(.*?)</', html, re.S)
-    sys.exit("render failed:\n" + (err.group(1).strip() if err else "no dataURL in DOM dump"))
-open(out, "wb").write(base64.b64decode(m.group(1)))
-PY
+node -e '
+  const fs = require("fs");
+  const dom = fs.readFileSync(process.argv[1], "utf8");
+  const m = dom.match(/DATAURL:data:image\/png;base64,([A-Za-z0-9+\/=]+)/);
+  if (!m) {
+    const err = dom.match(/RENDER_ERROR:([\s\S]*?)(<\/|$)/);
+    console.error("render failed:\n" + (err ? err[1].trim() : "no dataURL in DOM dump (chromium crashed?)"));
+    process.exit(1);
+  }
+  const png = Buffer.from(m[1], "base64");
+  if (png.length < 24 || png.toString("ascii", 1, 4) !== "PNG") {
+    console.error("render failed: output is not a valid PNG"); process.exit(1);
+  }
+  fs.writeFileSync(process.argv[2], png);
+  console.log(`wrote ${process.argv[2]} (${png.readUInt32BE(16)}x${png.readUInt32BE(20)})`);
+' "$DOM" "$OUT"
 
 rm -f "$TMP" "$DOM"
-identify -format "wrote $OUT (%wx%h)\n" "$OUT"

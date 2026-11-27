@@ -1,0 +1,74 @@
+<!doctype html>
+<!-- font-bits.html — rasterize a TTF into GLSL bitmap rows using headless
+     chromium (NO ImageMagick / python needed — runs inside the container).
+     scripts/font-to-glsl.sh embeds the config into #cfg and reads the result
+     from the #out pre via --dump-dom. -->
+<html>
+<head><meta charset="utf-8"><style>body{margin:0}</style></head>
+<body>
+<script id="cfg" type="application/json">//CFG_PLACEHOLDER//</script>
+<pre id="out" type="text/plain"></pre>
+<script>
+const CFG = JSON.parse(document.getElementById("cfg").textContent); // {font, text, pointsize, threshold}
+const out = document.getElementById("out");
+
+function fail(msg) { out.textContent = "FONTBITS_ERROR:" + msg; throw new Error(msg); }
+
+(async () => {
+  try {
+    // px vs ImageMagick -pointsize: pointsize = px * 0.75
+    const px = Math.round(CFG.pointsize / 0.75);
+    const thr = (CFG.threshold ?? 0.5) * 255;
+
+    const face = new FontFace("Bits", "url('" + CFG.font + "')");
+    await face.load();
+    document.fonts.add(face);
+
+    const chars = [...new Set(CFG.text)].filter((c) => c !== " ");
+    const bitmaps = [];
+    let maxH = 0;
+
+    for (const ch of chars) {
+      const c = document.createElement("canvas");
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      ctx.font = `${px}px Bits`;
+      const m = ctx.measureText(ch);
+      const w = Math.max(1, Math.ceil(m.width));
+      const h = Math.ceil(px * 1.6);
+      c.width = w; c.height = h;
+      const ctx2 = c.getContext("2d", { willReadFrequently: true });
+      ctx2.font = `${px}px Bits`;
+      ctx2.fillStyle = "#fff";
+      ctx2.textBaseline = "top";
+      ctx2.fillText(ch, 0, 0);
+      const data = ctx2.getImageData(0, 0, w, h).data;
+      const grid = [];
+      for (let y = 0; y < h; y++) {
+        const row = [];
+        for (let x = 0; x < w; x++) row.push(data[(y * w + x) * 4 + 3] >= thr ? 1 : 0);
+        grid.push(row);
+      }
+      const rows = grid.filter((r) => r.some((v) => v));
+      if (!rows.length) { bitmaps.push({ ch, w: 1, rows: [[0]] }); continue; }
+      const cols = [...new Set(rows.flatMap((r, yi) => r.map((v, xi) => v ? xi : -1)))].filter((v) => v >= 0);
+      const x0 = Math.min(...cols), x1 = Math.max(...cols);
+      const trimmed = rows.map((r) => r.slice(x0, x1 + 1));
+      bitmaps.push({ ch, w: x1 - x0 + 1, rows: trimmed });
+      maxH = Math.max(maxH, trimmed.length);
+    }
+
+    const bits = (row, w) => row.reduce((v, b) => (v << 1) | b, 0);
+    let text = "";
+    for (const b of bitmaps) {
+      const pad = maxH - b.rows.length;
+      const rows = Array(pad).fill(0).concat(b.rows.map(bits));
+      text += `  // '${b.ch}'  ${b.w}x${maxH}\n  int[${maxH}](${rows.join(", ")}),\n`;
+    }
+    out.textContent = `FONTBITS:cell=${maxH}\n` + text;
+  } catch (e) {
+    fail(String(e && e.message || e));
+  }
+})();
+</script>
+</body>
+</html>
