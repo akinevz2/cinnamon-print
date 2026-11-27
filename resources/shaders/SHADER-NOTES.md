@@ -57,3 +57,35 @@ Pick ONE convention per shader, state it in a comment, and stick to it.
   Both emit GLSL row data — see `example.font.frag` for the assembled result.
 - Prefer vector/list constants declared as `const int NAME[N] = int[N](...);`
   over per-branch literals.
+
+## Embedding image data in a .frag — the storage wall (measured)
+
+A `.frag` has no texture support in the bench, so any image data must ride in
+the shader source. On this container's chromium (ANGLE → SwiftShader) that
+hits two hard walls — **both silent**: compile, link and draw all succeed,
+but pixel reads return 0 (a black/transparent swatch).
+
+1. **File-scope `const` arrays cannot be dynamically indexed.**
+   `const uint PIX[N] = uint[N](...);` at file scope, read as `PIX[i]` with a
+   runtime `i`, always yields 0. Only *local* arrays read correctly at dynamic
+   indices — the same pattern as the bitmap font rows in `example.frag`.
+2. **Total local-array storage caps out between 24,576 and 32,768 words.**
+   Measured by packing real image words and rendering:
+
+   | local `uint` words packed | result |
+   |---:|---|
+   | 8,192 | ✅ renders |
+   | 16,384 | ✅ renders |
+   | 24,576 | ✅ renders |
+   | 32,768 | ❌ all reads return 0 |
+
+   (A single *file-scope* array ≥ 16,384 fails earlier, with a visible compile
+   error: "Size of declared private variable exceeds implementation-defined
+   limit".)
+
+Practical ceiling: ~24k packed RGBA8888 words ≈ a 155×155 image — fine for
+glyph bitmaps and banners, hopeless for photos (a 804×718 scene needs ~144k
+words even at half resolution; a native-res character cutout ~76k). **For real
+images, don't smuggle pixels through GLSL source**: cut them into
+`resources/fragments/fragment*.png` (see `scripts/trace-cutout.mjs` for
+background/character separation) and let the compose pipeline place them.
