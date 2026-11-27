@@ -17,7 +17,7 @@ target="$out/${stem}_$(printf %03d "$n").png"
 
 if [ $((10#$n)) -eq 1 ]; then
 	base=$(mktemp /tmp/ewc.XXXXXX.png)
-	magick -size "${canvas}x${canvas}" xc:'#000000' "$base"
+	magick -size "${canvas}x${canvas}" xc:'#000000' -colorspace sRGB PNG24:"$base"
 else
 	base="$out/${stem}_$(printf %03d $((n - 1))).png"
 fi
@@ -25,12 +25,13 @@ fi
 rot=$((RANDOM % 360))
 px=$((RANDOM % canvas - 56)); py=$((RANDOM % canvas - 56))
 
-# Alpha-masked stamp: the source's background is opaque near-black. Keep the
-# original RGB (no colorspace conversion — that would gray it out) and derive
-# alpha from a grayscale clone via CopyOpacity, so overlapping instances
-# composite instead of cutting black boxes over each other.
+# Alpha-masked stamp: transparency applied SOLELY to the near-black
+# background pixels (fuzz-transparent) — body pixels keep full opacity, so
+# whites don't dim and overlapping instances composite cleanly. (Do NOT use
+# luminance-as-alpha here: it makes mid-grays semi-transparent and the black
+# canvas bleeds through, graying the art.)
 stamp=$(mktemp /tmp/ewc.XXXXXX.png)
-magick "$src" -alpha off \( +clone -colorspace Gray \) -compose CopyOpacity -composite "$stamp"
+magick "$src" -fuzz 12% -transparent black "$stamp"
 
 if [ $((RANDOM % 2)) -eq 0 ]; then
 	# 1 canvas rotation
@@ -55,7 +56,7 @@ magick "$base" \
 	-define distort:viewport="${canvas}x${canvas}" \
 	-virtual-pixel background -background '#000000' \
 	-distort "$mode" "$args" \
-	"$target"
+	PNG24:"$target"
 rm -f "$stamp" "$rotimg" "$shadow"
 [ $((10#$n)) -eq 1 ] && rm -f "$base"
 

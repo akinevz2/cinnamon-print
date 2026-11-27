@@ -1,5 +1,5 @@
 {
   "title": "Bernoulli cloud banner — cinnamon-print",
-  "prompt": "256 alpha-masked hec.112 instances with soft shadows on black; cinnamon-print title, subtext and akinevz.dev signature overlaid",
-  "updated": "2026-11-27T02:38:55.512Z"
+  "prompt": "256 hec.112 instances, fuzz-blitted to alpha (black-only transparency, colors preserved) with soft silhouette shadows on black; cinnamon-print + for your imagework in Comic Mono (blue infill, #feef69 outline) and akinevz.dev signature",
+  "updated": "2026-11-27T02:57:52.105Z"
 }
