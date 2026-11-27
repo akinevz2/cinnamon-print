@@ -7,9 +7,12 @@
 #   make pdf  FILE=my        # rebuild -> project/output/my.pdf
 #   make repl                # interactive opencode session (skill mounted)
 #   make serve               # node livereload server on http://localhost:8899
+#   make serve               #   .../cloud  = live cloud-fill preview + progress
 #   make check-layout        # report text overlaps / canvas overflow
 #   make arrange             # algorithmically re-stack text, no overlaps
 #   make dist                # zip the whole folder for distribution
+#   make cloud               # bernoulli/monte-carlo fill: project/output/banner.png
+#   make cloud COUNT=8 STEM=cloud-test   # quick 8-instance test render
 
 SHELL := /bin/bash
 
@@ -56,9 +59,11 @@ pdf: $(IMAGE_STAMP)
 ## ---- interactive development ------------------------------------------
 
 # "REPL" work: an opencode session with the imagework-compose skill loaded,
-# fully inside the nix container.
+# fully inside the nix container. Port 8899 is forwarded so a build started
+# from INSIDE the session can be previewed live in a host browser at
+# http://localhost:8899/cloud (same as builds started on the host).
 repl: $(IMAGE_STAMP)
-	$(call DOCKER_RUN,"opencode")
+	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(IMAGE) bash -c "opencode"
 
 # Livereload webserver for browser preview during composition.
 serve: $(IMAGE_STAMP)
@@ -75,7 +80,59 @@ check-layout: $(IMAGE_STAMP)
 arrange: $(IMAGE_STAMP)
 	$(call DOCKER_RUN,"node ./scripts/layout.mjs arrange")
 
-## ---- build / distribution ---------------------------------------------
+## ---- bernoulli / monte-carlo background fill ------------------------------
+# Plasters resources/hec.56.png across a canvas: COUNT random instances are
+# stamped at random positions with random per-instance rotations, and after
+# EVERY stamp the whole canvas is transformed (1 rotation or 2 shears, chosen
+# at random) — so the cloud accumulates iteratively, "unintuitively".
+#
+# Each step emits a byproduct png (project/output/$(STEM)_NNN.png) and a
+# [NNN/COUNT] pct% [####....] progress line. The final target crops the
+# center $(BANNER_W)x$(BANNER_H) out of the $(CANVAS)x$(CANVAS) working
+# canvas (padding absorbs the shear/rotation bleed at the edges).
+#
+# NOTE: run serially (no `make -j`) — the steps form a strict chain.
+# While building, open http://localhost:8899/cloud for a live preview with
+# per-step progress (works for host-side and in-container builds alike).
+# Parameters (override on the command line):
+#   COUNT      number of random instances stamped   (default 256)
+#   CANVAS     working canvas side, square          (default 3000)
+#   BANNER_W/H final crop size                      (default 2560x1440)
+#   FILL_SRC   the tile png to plaster              (resources/hec.56.png)
+#   STEM       output stem -> project/output/<STEM>.png (default banner)
+
+COUNT    ?= 256
+CANVAS   ?= 3000
+BANNER_W ?= 2560
+BANNER_H ?= 1440
+FILL_SRC ?= resources/hec.56.png
+STEM     ?= banner
+OUTDIR   := project/output
+STEP     := $(OUTDIR)/$(STEM)
+# The chain root (step 001) has no predecessor; zero-pad to match step names.
+PCOUNT   := $(shell printf %03d $(COUNT))
+
+# Each step gets an EXPLICIT rule (generated below) chaining on the previous
+# step's png; the step logic lives in scripts/cloud-step.sh.
+define CLOUD_STEP
+$(OUTDIR)/$(STEM)_$(1).png: $(FILL_SRC) $(if $(filter-out 001,$(1)),$(OUTDIR)/$(STEM)_$(2).png)
+	@bash scripts/cloud-step.sh $(1) $(CANVAS) $(COUNT) $(OUTDIR) $(STEM) $(FILL_SRC)
+endef
+# Instantiate one rule per step (001..COUNT); each links to its predecessor.
+$(foreach i,$(shell seq 1 $(COUNT)),\
+	$(eval $(call CLOUD_STEP,$(shell printf %03d $(i)),$(shell printf %03d $$(($(i)-1))))))
+
+# Final banner: center-crop the working canvas down to the target size.
+$(STEP).png: $(STEP)_$(PCOUNT).png
+	magick $< -gravity center -crop $(BANNER_W)x$(BANNER_H)+0+0 +repage $@
+	@echo "banner written: $@"
+
+.PHONY: cloud cloud-clean
+cloud: $(STEP).png
+
+cloud-clean:
+	rm -f $(STEP)_*.png $(STEP).png project/output/cloud-progress.log
+
 
 build-image:
 	$(DOCKER) build -t $(IMAGE) .
