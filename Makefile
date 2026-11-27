@@ -115,7 +115,8 @@ repl: $(IMAGE_STAMP)
 	cp -a $(OCFG_STAGE)/opencode.jsonc $(OCFG_STAGE)/opencode.json; true
 # both opencode.json and opencode.jsonc are read and MERGED by opencode —
 # keep the pair identical or the stripped plugin sneaks back via the twin.
-	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(OCFG_STATE) -v $(OCFG_STAGE):/mnt/opencode-cfg:ro $(OCFG_KEY) $(IMAGE) bash scripts/repl-session.sh
+	@echo "launching container on port 8899"
+	@$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(OCFG_STATE) -v $(OCFG_STAGE):/mnt/opencode-cfg:ro $(OCFG_KEY) $(IMAGE) bash scripts/repl-session.sh
 
 # Livereload webserver for browser preview during composition.
 serve: $(IMAGE_STAMP)
