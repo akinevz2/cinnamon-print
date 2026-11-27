@@ -166,7 +166,8 @@
         if (!confirm(`Delete project "${p.title}"?\n\nIts artifact (png/pdf), metadata and progress move to\n.opencode/trash/ — restorable by moving them back.`)) return;
         try {
           const r = await fetch("/api/trash", { method: "POST", body: JSON.stringify({ project: stem }) });
-          const out = await r.json();
+          const text = await r.text();
+          let out; try { out = JSON.parse(text); } catch { throw new Error("server out of date — exit the session and re-run make repl"); }
           if (out.error) throw new Error(out.error);
           if (activeFile === p.file) { activeFile = null; frame.hidden = true; status.textContent = "deleted " + p.title; }
           refreshProjects();
@@ -269,7 +270,7 @@
         if (!confirm(`Delete frag "${name}"?\n\nIt moves to .opencode/trash/resources/shaders/ —\nrestorable by moving it back.`)) return;
         try {
           const r = await fetch("/api/trash", { method: "POST", body: JSON.stringify({ shader: name }) });
-          const out = await r.json();
+          const text = await r.text(); let out; try { out = JSON.parse(text); } catch { throw new Error("server out of date — exit the session and re-run make repl"); }
           if (out.error) throw new Error(out.error);
           cache.delete(name);
           node.remove();
