@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- cloud fill live preview — served at /cloud by serve.mjs; streams step
-     progress + artifact swaps over SSE from /cloud/events. -->
+<!-- project console — served at / (redirect) and /cloud by serve.mjs; streams
+     step progress + artifact swaps over SSE from /cloud/events. -->
 <html>
 <head>
 <meta charset="utf-8">
-<title>imagework — cloud fill preview</title>
+<title>cinnamon-print — project console</title>
 <style>
   body { background:#000; color:#ccc; font-family:monospace; margin:0;
          display:flex; flex-direction:column; align-items:center; gap:14px; padding:24px; }
@@ -59,7 +59,7 @@
   <h4>projects</h4>
   <ul id="plist"><li class="dim">loading…</li></ul>
 </aside>
-<h3>cloud fill — live preview</h3>
+<h3>cinnamon-print — project console</h3>
 <div class="bar"><div class="fill" id="fill"></div></div>
 <div id="status">connecting…</div>
 <img id="frame" hidden>
@@ -109,6 +109,16 @@
   document.getElementById("tab").onclick = () => side.classList.toggle("hidden");
   side.classList.add("hidden"); // start collapsed
 
+  function select(p, li) {
+    activeFile = p.file;
+    frame.hidden = false;
+    frame.src = "/output/" + p.file + "?v=" + Date.now();
+    status.textContent = "viewing " + p.title;
+    setFinalLink(p.file);                    // link follows the frame
+    side.classList.add("hidden");
+    refreshProjects();                       // re-mark active
+  }
+
   async function refreshProjects() {
     let projects = [];
     try { projects = await (await fetch("/api/projects")).json(); } catch {}
@@ -125,15 +135,7 @@
       d.textContent = `${p.file}${p.updated ? " · " + new Date(p.updated).toLocaleString() : ""}`;
       if (p.prompt) d.title = p.prompt;         // prompt summary on hover
       li.append(t, d);
-      li.onclick = () => {
-        activeFile = p.file;
-        frame.hidden = false;
-        frame.src = "/output/" + p.file + "?v=" + Date.now();
-        status.textContent = "viewing " + p.title;
-        setFinalLink(p.file);                    // link follows the frame
-        side.classList.add("hidden");
-        refreshProjects();                       // re-mark active
-      };
+      li.onclick = () => select(p, li);
       if (p.prompt) {
         const pr = document.createElement("div"); pr.className = "d";
         pr.textContent = p.prompt.length > 80 ? p.prompt.slice(0, 80) + "…" : p.prompt;
@@ -141,6 +143,9 @@
       }
       plist.appendChild(li);
     }
+    // Open the latest worked-on project by default (the API returns
+    // newest-first) instead of an empty frame.
+    if (!activeFile && projects.length) select(projects[0], plist.firstChild);
   }
   refreshProjects();
 
