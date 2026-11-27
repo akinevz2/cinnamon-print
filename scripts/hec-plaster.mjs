@@ -22,8 +22,10 @@
 //
 // Usage:
 //   node scripts/hec-plaster.mjs <base.png> <stamp.png> <out.png> \
-//        [count=256] [seed=112] [excl=x0,y0,x1,y1 (final-crop coords)] [crop=1200] \
-//        [shadow.png (144x144, e.g. rasterized from resources/shaders/hec-cube-shadow.frag)]
+//        [count=256] [seed=112] [excl=x0,y0,x1,y1|none (final-crop coords)] [crop=1200] \
+//        [shadow.png (144x144, e.g. rasterized from resources/shaders/hec-cube-shadow.frag)] \
+//        [textband=x,y,w,h  final pass: paste that base rect (e.g. the headline
+//         band) ON TOP of the finished plaster]
 import { readFileSync, writeFileSync, mkdtempSync } from "fs";
 import { execFileSync } from "child_process";
 import { join } from "path";
@@ -37,12 +39,17 @@ if (!base || !stamp || !out) {
 const COUNT = Number(countArg ?? 256);
 const SEED = Number(seedArg ?? 112);
 const CROP = Number(cropArg ?? 1200);
-// final-crop text keep-out rect (as measured on the rendered cover)
-const EXCL = (exclArg ?? "55,470,1185,720").split(",").map(Number);
+// final-crop text keep-out rect (as measured on the rendered cover);
+// "none" disables it — cubes go ALL over the canvas
+const EXCL = exclArg === "none"
+  ? [1e9, 1e9, 1e9, 1e9]   // qx + r < EXCL[0] holds for every placement
+  : (exclArg ?? "55,470,1185,720").split(",").map(Number);
 const b64 = (p) => readFileSync(p).toString("base64");
 // shader-rasterized drop shadow (resources/shaders/hec-cube-shadow.frag):
 // 144x144 cube-px units, hexagon centre baked 3px below the image centre
 const SHADOW = shadowArg ? JSON.stringify(b64(shadowArg)) : "null";
+// final pass: paste a base rect (the headline band) on top of the plaster
+const TEXTBAND = (process.argv[10] ?? "").split(",").map(Number);
 
 // mulberry32 — tiny deterministic PRNG so re-runs are reproducible.
 function mulberry32(a) {
@@ -84,6 +91,7 @@ const S = Math.ceil((CROP * Math.SQRT2 + 100) / 2) * 2; // 1200*√2 ≈ 1697 �
 
 const html = `<!doctype html><meta charset="utf-8"><body></body><script>
 const COUNT = ${COUNT}, SEED = ${SEED}, CROP = ${CROP}, S = ${S};
+const TEXTBAND = ${JSON.stringify(TEXTBAND)};
 const EXCL = ${JSON.stringify(EXCL)}.map(v => v + (S - CROP) / 2);  // offset into work coords
 function mulberry32(a){return function(){a|=0;a=(a+0x6d2b79f5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;}}
 const rand = mulberry32(SEED);
@@ -195,8 +203,8 @@ function stretch(m) {
       const i = placed;
       const m = P[i];
       const st = stretch(m);
-      // smaller cubes (a tad), slightly damped when the chain is violent
-      const s = (0.55 + rand() * 0.4) / Math.max(1, Math.sqrt(st));
+      // small cubes — the text stays readable in the gaps between them
+      const s = (0.35 + rand() * 0.3) / Math.max(1, Math.sqrt(st));
       const rot = rand() * Math.PI * 2;
       // shadow allowance: offset 3px + ~2.5σ gaussian tail, all cube px
       const r = (half * Math.SQRT2 + 14) * s * st;   // rotation-accounted circle
@@ -228,6 +236,12 @@ function stretch(m) {
     cv.width = cv.height = CROP;
     const cc = cv.getContext("2d");
     cc.drawImage(work, -(S - CROP) / 2, -(S - CROP) / 2);
+
+    // ---- final pass: the headline band goes ON TOP of everything
+    if (TEXTBAND.length === 4 && TEXTBAND.every(Number.isFinite)) {
+      cc.drawImage(baseImg, TEXTBAND[0], TEXTBAND[1], TEXTBAND[2], TEXTBAND[3],
+        TEXTBAND[0], TEXTBAND[1], TEXTBAND[2], TEXTBAND[3]);
+    }
 
     document.body.textContent = "DATAURL:" + cv.toDataURL("image/png")
       + "|PLACED:" + placed + "/" + COUNT
