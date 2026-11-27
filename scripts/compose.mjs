@@ -138,23 +138,31 @@ execFileSync("pandoc", pandocArgs, { cwd: PROJECT, stdio: "inherit" });
    after each pass until an explicit final emission (or the window passes).
    `make repl` / `make serve` therefore pick up multi-step rendering
    automatically — no special invocation. */
+/* CINNAMON_REBUILD=1 marks the repl's STARTUP re-render of an old artifact —
+   housekeeping, not new work: it must not claim .last-stem or emit
+   progress/iteration state. */
+const REBUILD = process.env.CINNAMON_REBUILD === "1";
 const PROG = path.join(PROJECT, "output", `${stem}.progress`);
 const now = Date.now();
 let prev = null;
 try { prev = JSON.parse(readFileSync(PROG, "utf8")); } catch {}
 const ITER_WINDOW = 15 * 60 * 1000;
 let step, total;
-if (!prev || !prev.time || now - prev.time > ITER_WINDOW) {
+if (REBUILD) {
+  step = 1; total = 1;                       // housekeeping render: no claims
+} else if (!prev || !prev.time || now - prev.time > ITER_WINDOW) {
   step = 1; total = 1;                       // fresh build: done after this render
 } else {
   step = prev.step + 1; total = step + 1;    // iterating: never quite "done"
 }
 const autoLabel = step === 1 ? "output ready" : `iteration ${step} — in progress`;
-writeFileSync(PROG, JSON.stringify({ stem, step, total, pct: Math.round(step * 100 / total), label: autoLabel, time: now }));
+if (!REBUILD) {
+  writeFileSync(PROG, JSON.stringify({ stem, step, total, pct: Math.round(step * 100 / total), label: autoLabel, time: now }));
 
-/* remember the stem only after a render actually produced the file —
-   `make repl` reads this to rebuild the latest artifact on session start */
-writeFileSync(path.join(PROJECT, "output", ".last-stem"), stem);
+  /* remember the stem only after a render actually produced the file —
+     `make repl` reads this to rebuild the latest artifact on session start */
+  writeFileSync(path.join(PROJECT, "output", ".last-stem"), stem);
+}
 
 console.log(process.exitCode ? "compose finished WITH LINT ERRORS (exit 2)" : `wrote ${out}`);
 

@@ -17,7 +17,7 @@ stem="$(cat project/output/.last-stem 2>/dev/null || true)"
 stem="${stem:-output}"
 echo "rebuilding latest artifact: $stem"
 mkdir -p logs
-node scripts/compose.mjs png "$stem" >>logs/serve.log 2>&1 || true
+CINNAMON_REBUILD=1 node scripts/compose.mjs png "$stem" >>logs/serve.log 2>&1 || true
 
 node scripts/serve.mjs >>logs/serve.log 2>&1 &
 server=$!
