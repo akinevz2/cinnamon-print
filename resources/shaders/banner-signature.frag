@@ -47,7 +47,7 @@ float glyphW(int c) {
   return c == 46 ? 1.0 : 5.0;
 }
 
-const float S = 12.0;                    // glyph pixel scale
+const float S = 3.0;                    // glyph pixel scale
 const vec3 FG = vec3(254.0, 239.0, 105.0) / 255.0; // #feef69
 
 bool textOn(vec2 gp) {
