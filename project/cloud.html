@@ -114,6 +114,11 @@
   function miniBar(stem) {
     const p = progressState[stem];
     if (!p) return "";
+    // an iterative build whose iteration window has lapsed is, in hindsight,
+    // finished — don't freeze it mid-progress forever
+    const stale = p.total > 1 && Date.now() - (p.time || 0) > 15 * 60 * 1000;
+    if (stale) return `<div class="mini"><i style="width:100%"></i></div>` +
+      `<div class="steps">${p.step - 1} re-renders · output ready</div>`;
     return `<div class="mini"><i style="width:${p.pct}%"></i></div>` +
            `<div class="steps">${p.step}/${p.total}${p.label ? " · " + p.label : ""}</div>`;
   }

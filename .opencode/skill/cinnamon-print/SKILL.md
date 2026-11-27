@@ -172,7 +172,11 @@ for an image effect ImageMagick can't do. The limits:
    N/(N+1) "iteration N — in progress" per pass. The agent does not
    write progress code — just hit the rendering pipeline (once for a
    simple project, repeatedly for a multi-step one). `make cloud` is
-   the same idea with 256 automatic steps.
+   the same idea with 256 automatic steps. **When an iterative run is
+   definitively finished** (the agent decides no more passes are needed),
+   close it explicitly: `scripts/progress.sh <stem> 1 1 "output ready"` —
+   and if it's left un-closed, the console ages stale in-progress state
+   into "output ready" after the 15-minute window anyway.
    State persists in `output/<stem>.progress` (state file, gitignored).
 
 **Anti-patterns (these signal you skipped the intent-first step):**
