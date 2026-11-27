@@ -117,8 +117,8 @@ OCFG_CACHE := $(CURDIR)/.opencode/cache
 repl: $(IMAGE_STAMP)
 	@echo "Making your configs available inside the session"
 	@mkdir -p $(OCFG_CACHE)/config $(OCFG_CACHE)/state
-	@if [ ! -w "$(OCFG_CACHE)/config" ] || [ ! -w "$(OCFG_CACHE)/state" ]; then \
-		echo "  [ERROR] .opencode/cache is not writable — docker created it as root."; \
+	@if [ ! -w "$(OCFG_CACHE)/config" ]; then \
+		echo "  [ERROR] .opencode/cache/config is not writable — docker created it as root."; \
 		echo "  fix: sudo chown -R $$USER .opencode/cache && make repl"; \
 		exit 1; \
 	fi
