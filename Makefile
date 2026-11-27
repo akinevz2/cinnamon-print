@@ -101,7 +101,10 @@ repl: $(IMAGE_STAMP)
 	@rm -rf $(OCFG_STAGE) && cp -aL $(HOME)/.config/opencode $(OCFG_STAGE) 2>/dev/null; true
 	@rm -rf $(OCFG_STAGE)/opencode-hlwm-orchestrator; \
 	sed -i -E 's/,?[[:space:]]*"\.\/opencode-hlwm-orchestrator"//' $(OCFG_STAGE)/opencode.jsonc 2>/dev/null; \
-	node -e "const f='$(OCFG_STAGE)/opencode.jsonc';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.tui=Object.assign({theme:'herbst-purple'},j.tui);fs.writeFileSync(f,JSON.stringify(j,null,2))" 2>/dev/null; true
+	node -e "const f='$(OCFG_STAGE)/opencode.jsonc';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.tui=Object.assign({theme:'herbst-purple'},j.tui);fs.writeFileSync(f,JSON.stringify(j,null,2))" 2>/dev/null; \
+	cp -a $(OCFG_STAGE)/opencode.jsonc $(OCFG_STAGE)/opencode.json; true
+# both opencode.json and opencode.jsonc are read and MERGED by opencode —
+# keep the pair identical or the stripped plugin sneaks back via the twin.
 	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) -v $(OCFG_STAGE):/mnt/opencode-cfg:ro $(OCFG_KEY) $(IMAGE) bash -c \
 		"mkdir -p /root/.config/opencode && cp -a /mnt/opencode-cfg/. /root/.config/opencode/; node ./scripts/serve.mjs >/tmp/serve.log 2>&1 & server=$$!; opencode; rc=$$?; kill $$server 2>/dev/null; [ $$rc -ne 0 ] && tail -n 20 /tmp/serve.log; exit $$rc"
 
