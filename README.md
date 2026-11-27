@@ -84,7 +84,7 @@ cinnamon-print/
     shaders/                # agent-authored .frag shaders, watched live by the bench
     fonts/                  # custom .ttf/.otf fonts go here
   .opencode/skill/
-    imagework-compose/      # skill loaded in interactive sessions (mounted in)
+    cinnamon-print/         # skill loaded in interactive sessions (mounted in)
 ```
 
 </details>
