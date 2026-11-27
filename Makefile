@@ -95,13 +95,18 @@ OCFG_STAGE := /tmp/cinnamon-print-cfg
 # Provider auth: opencode.jsonc reads {env:RAREBOX_API_KEY} — pass it through
 # when the host shell has it (ollama's key may be non-secret but is required).
 OCFG_KEY := $(shell test -n "$$RAREBOX_API_KEY" && printf -- '-e RAREBOX_API_KEY=%s' "$$RAREBOX_API_KEY")
+# Default model inside the session: the TUI's model preference normally
+# persists in the host state db (~/.local/share/opencode/opencode.db), which
+# is NOT mounted (live db, shared with --rm containers = corruption risk) —
+# so the staged config pins the preferred model explicitly.
+OCFG_MODEL ?= rarebox/unsloth/GLM-4.7-Flash-GGUF:MXFP4_MOE
 
 repl: $(IMAGE_STAMP)
 	@echo "Making your configs available inside the session"
 	@rm -rf $(OCFG_STAGE) && cp -aL $(HOME)/.config/opencode $(OCFG_STAGE) 2>/dev/null; true
 	@rm -rf $(OCFG_STAGE)/opencode-hlwm-orchestrator; \
 	sed -i -E 's/,?[[:space:]]*"\.\/opencode-hlwm-orchestrator"//' $(OCFG_STAGE)/opencode.jsonc 2>/dev/null; \
-	node -e "const f='$(OCFG_STAGE)/opencode.jsonc';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.tui=Object.assign({theme:'herbst-purple'},j.tui);fs.writeFileSync(f,JSON.stringify(j,null,2))" 2>/dev/null; \
+	node -e "const f='$(OCFG_STAGE)/opencode.jsonc';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f,'utf8'));j.tui=Object.assign({theme:'herbst-purple'},j.tui);j.model=j.model||'$(OCFG_MODEL)';fs.writeFileSync(f,JSON.stringify(j,null,2))" 2>/dev/null; \
 	cp -a $(OCFG_STAGE)/opencode.jsonc $(OCFG_STAGE)/opencode.json; true
 # both opencode.json and opencode.jsonc are read and MERGED by opencode —
 # keep the pair identical or the stripped plugin sneaks back via the twin.
