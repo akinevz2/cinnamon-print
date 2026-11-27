@@ -183,57 +183,59 @@
     let shaders = [];
     try { shaders = await (await fetch("/api/shaders")).json(); }
     catch { fstatus.textContent = "server unreachable"; return; }
+    // Render the PRESENT-SET: reconcile the grid one-node-per-shader against
+    // the authoritative list; a changed mtime replaces its card in place —
+    // cache is keyed synchronously, so rapid events never duplicate entries.
     const seen = new Set();
     for (const { name, mtime } of shaders) {
       seen.add(name);
       const prev = cache.get(name);
-      if (prev && prev.mtime === mtime) continue; // unchanged on disk
+      if (prev && prev.mtime === mtime && prev.node.isConnected) continue;
       if (prev) prev.node.remove();
       const node = document.createElement("div");
       node.className = "fcard";
       const label = document.createElement("div");
       label.className = "lbl";
       label.textContent = name + " · seed=" + bench.seedFrom(name).toFixed(2);
-      node.append(label);
-      try {
-        const src = await (await fetch("/resources/shaders/" + name)).text();
-        const r = await bench.renderToImage(name, src);
-        const cardEl = document.createElement("div");
-        cardEl.className = "card";
-        if (r.error) {
-          const errBox = document.createElement("pre");
-          errBox.className = "frag-error";
-          errBox.textContent = `[${r.name}]\n${r.error}`;
-          cardEl.append(errBox);
-        } else {
-          // Native drag-out: the <img> itself (Chromium DownloadURL hint /
-          // Firefox serializes the image on drop).
-          const save = document.createElement("a");
-          save.href = r.dataUrl;
-          save.download = r.name.replace(/\.frag$/, "") + ".png";
-          save.textContent = "Save As";
-          const post = document.createElement("a");
-          post.textContent = "→ fragments";
-          post.onclick = async () => {
-            const res = await fetch("/api/fragments", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: r.name.replace(/\.frag$/, ""), dataUrl: r.dataUrl }),
-            });
-            post.textContent = res.ok ? "✓ dropped" : "✗ failed";
-            setTimeout(() => (post.textContent = "→ fragments"), 1500);
-          };
-          cardEl.append(r.img, save, post);
+      const cardEl = document.createElement("div");
+      cardEl.className = "card";
+      cardEl.textContent = "rendering…";
+      node.append(label, cardEl);
+      cache.set(name, { mtime, node });
+      grid.appendChild(node);
+      (async () => {
+        try {
+          const src = await (await fetch("/resources/shaders/" + name)).text();
+          const r = await bench.renderToImage(name, src);
+          if (!node.isConnected) return; // superseded by a newer change
+          cardEl.textContent = "";
+          if (r.error) {
+            const errBox = document.createElement("pre");
+            errBox.className = "frag-error";
+            errBox.textContent = `[${r.name}]\n${r.error}`;
+            cardEl.append(errBox);
+          } else {
+            const save = document.createElement("a");
+            save.href = r.dataUrl;
+            save.download = r.name.replace(/\.frag$/, "") + ".png";
+            save.textContent = "Save As";
+            const post = document.createElement("a");
+            post.textContent = "→ fragments";
+            post.onclick = async () => {
+              const res = await fetch("/api/fragments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: r.name.replace(/\.frag$/, ""), dataUrl: r.dataUrl }),
+              });
+              post.textContent = res.ok ? "✓ dropped" : "✗ failed";
+              setTimeout(() => (post.textContent = "→ fragments"), 1500);
+            };
+            cardEl.append(r.img, save, post);
+          }
+        } catch {
+          if (node.isConnected) cardEl.textContent = "fetch failed";
         }
-        node.append(cardEl);
-        cache.set(name, { mtime, node });
-        grid.appendChild(node);
-      } catch {
-        const errBox = document.createElement("pre");
-        errBox.className = "frag-error";
-        errBox.textContent = `[${name}]\nfetch failed`;
-        node.append(errBox);
-      }
+      })();
     }
     for (const [name, prev] of cache)
       if (!seen.has(name)) {

@@ -1,15 +1,17 @@
 /**
  * frag-scan.js — Frag Bench: client-side WebGL renderer for live .frag shaders.
  *
- * Served at http://localhost:8899/frag by serve.mjs. Lists resources/shaders/
- * via /api/shaders, re-renders on SSE {shaders:1} events (server watches the
- * folder), and shows each shader as a draggable PNG swatch (or an error card
- * with the compile/link log when the agent wrote broken GLSL).
+ * Served at http://localhost:8899/frag by serve.mjs. The UI renders the
+ * PRESENT-SET: it reconciles the grid against the authoritative /api/shaders
+ * list (name + mtime) — one node per shader, replaced (never duplicated) when
+ * the file's mtime changes on disk, removed when the file disappears. SSE
+ * {shaders:1} events just trigger a reconcile pass.
  *
  * Drag-out is native: the swatch is a real <img> backed by a blob URL, so
  * Chromium honours the DownloadURL hint and Firefox serializes the image on
- * drop — no JS drag-and-drop overrides. A per-swatch "save" anchor exists as
- * a fallback for browsers whose file-manager drag needs help.
+ * drop — no JS drag-and-drop overrides. A per-swatch "Save As" anchor exists
+ * as a fallback (serializes the render as .png), plus server-assisted "→
+ * fragments".
  *
  * GL context policy: alpha:false (opaque fills — shader textures composite
  * predictably in the layout pipeline; a shader that wants transparency must
@@ -153,55 +155,59 @@ const grid = document.getElementById("bench");
 const status = document.getElementById("bench-status");
 const cache = new Map(); // name -> { mtime, node }
 
-function card(node, name, extra) {
-  const el = document.createElement("div");
-  el.className = "swatch";
-  el.append(node, extra);
-  return el;
-}
-
-function swatchFor(name, source, mtime) {
+// Build a keyed card synchronously (placeholder first), then fill it in
+// asynchronously — so rapid successive SSE events never duplicate entries:
+// the cache already knows the new mtime by the time the next reconcile runs.
+function buildCard(name, mtime) {
   const wrap = document.createElement("div");
   wrap.className = "swatch-wrap";
   const label = document.createElement("div");
   label.className = "swatch-label";
   label.textContent = name + " · seed=" + bench.seedFrom(name).toFixed(2);
-  wrap.append(label);
+  const cardEl = document.createElement("div");
+  cardEl.className = "swatch";
+  cardEl.textContent = "rendering…";
+  wrap.append(label, cardEl);
+  cache.set(name, { mtime, node: wrap });
 
-  bench.renderToImage(name, source).then((r) => {
-    if (r.error) {
-      const errBox = document.createElement("pre");
-      errBox.className = "frag-error";
-      errBox.textContent = `[${r.name}]\n${r.error}`;
-      wrap.append(errBox);
-    } else {
-      const cardEl = document.createElement("div");
-      cardEl.className = "swatch";
-      // Native drag: the <img> itself; save fallback for stubborn browsers.
-      const save = document.createElement("a");
-      save.href = r.dataUrl;
-      save.download = r.name.replace(/\.frag$/, "") + ".png";
-      save.className = "swatch-save";
-      save.textContent = "Save As";
-      const post = document.createElement("a");
-      post.className = "swatch-save";
-      post.textContent = "→ fragments";
-      post.onclick = async () => {
-        const res = await fetch("/api/fragments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: r.name.replace(/\.frag$/, ""),
-            dataUrl: r.dataUrl,
-          }),
-        });
-        post.textContent = res.ok ? "✓ dropped" : "✗ failed";
-        setTimeout(() => (post.textContent = "→ fragments"), 1500);
-      };
-      cardEl.append(r.img, save, post);
-      wrap.append(cardEl);
+  (async () => {
+    try {
+      const src = await (await fetch("/resources/shaders/" + name)).text();
+      const r = await bench.renderToImage(name, src);
+      if (!wrap.isConnected) return; // superseded by a newer change
+      if (r.error) {
+        const errBox = document.createElement("pre");
+        errBox.className = "frag-error";
+        errBox.textContent = `[${r.name}]\n${r.error}`;
+        cardEl.replaceWith(errBox);
+      } else {
+        cardEl.textContent = "";
+        const save = document.createElement("a");
+        save.href = r.dataUrl;
+        save.download = r.name.replace(/\.frag$/, "") + ".png";
+        save.className = "swatch-save";
+        save.textContent = "Save As";
+        const post = document.createElement("a");
+        post.className = "swatch-save";
+        post.textContent = "→ fragments";
+        post.onclick = async () => {
+          const res = await fetch("/api/fragments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: r.name.replace(/\.frag$/, ""), dataUrl: r.dataUrl }),
+          });
+          post.textContent = res.ok ? "✓ dropped" : "✗ failed";
+          setTimeout(() => (post.textContent = "→ fragments"), 1500);
+        };
+        cardEl.append(r.img, save, post);
+      }
+    } catch {
+      if (wrap.isConnected) {
+        cardEl.className = "swatch frag-error";
+        cardEl.textContent = "fetch failed";
+      }
     }
-  });
+  })();
   return wrap;
 }
 
@@ -213,20 +219,14 @@ async function refreshShaders() {
     status.textContent = "server unreachable";
     return;
   }
+  // Reconcile against the authoritative present-set.
   const seen = new Set();
   for (const { name, mtime } of shaders) {
     seen.add(name);
     const prev = cache.get(name);
-    if (prev && prev.mtime === mtime) continue; // unchanged
+    if (prev && prev.mtime === mtime && prev.node.isConnected) continue; // unchanged
     if (prev) prev.node.remove();
-    try {
-      const src = await (await fetch("/resources/shaders/" + name)).text();
-      const node = swatchFor(name, src, mtime);
-      cache.set(name, { mtime, node });
-      grid.appendChild(node);
-    } catch (e) {
-      status.textContent = "fetch failed: " + name;
-    }
+    grid.appendChild(buildCard(name, mtime));
   }
   for (const [name, prev] of cache)
     if (!seen.has(name)) {
