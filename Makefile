@@ -31,7 +31,10 @@ DOCKER ?= docker
 IMAGE  ?= cinnamon-print
 
 # Mount the whole folder so the skill, templates and fragments are all visible.
-VOL := -v "$(CURDIR)":/work -w /work
+VOL := -v "$(CURDIR)":/work -w /work -e HOME=/root
+# -e HOME=/root: the Dockerfile bakes HOME=/work, but opencode (and most
+# tools) look under $HOME/.config — the OCFG_MOUNT below targets /root/.config,
+# so the session needs HOME=/root for your configs to be picked up.
 # Port forwarded to the host for the livereload preview server.
 PORT_FWD := -p 8899:8899
 
@@ -75,7 +78,12 @@ pdf: $(IMAGE_STAMP)
 # ~/.config/opencode is mounted READ-ONLY so their agent/model/theme tweaks
 # apply inside the session too. (opencode's writable state lives under
 # ~/.local/share/opencode — not mounted, so no host pollution.)
-OCFG_DIR  := $(HOME)/.config/opencode
+#
+# STOW NOTE: ~/.config/opencode usually holds symlinks into ~/dots/opencode;
+# mounting it directly carries broken symlinks into the container. Mount the
+# resolved ~/dots directory when it exists instead.
+OCFG_STOW := $(HOME)/dots/opencode/.config/opencode
+OCFG_DIR  := $(shell test -d "$(OCFG_STOW)" && echo "$(OCFG_STOW)" || echo "$(HOME)/.config/opencode")
 OCFG_MOUNT := $(shell test -d "$(OCFG_DIR)" && printf -- '-v %s:/root/.config/opencode:ro' "$(OCFG_DIR)")
 
 repl: $(IMAGE_STAMP)
