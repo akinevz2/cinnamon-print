@@ -29,6 +29,7 @@ imagework/
   resources/                # DATA — your media, kept separate from code
     fragments/              # your fragment*.png components go here
     shaders/                # [WIP] agent-authored .frag shaders watched by Frag Bench
+                            #   — read SHADER-NOTES.md before editing (Y-axis gotchas)
     fonts/                  # custom .ttf/.otf fonts go here
   .opencode/skill/
     imagework-compose/      # skill loaded in interactive sessions (mounted in)

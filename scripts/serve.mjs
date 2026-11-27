@@ -141,7 +141,8 @@ function broadcast() {
 
 // ---- frag bench: shader listing + fragment upload --------------------------
 // Shaders live in resources/shaders/*.frag; mtime is the change token the
-// client diffs against so only new/updated files re-render.
+// client diffs against so only new/updated files re-render. Sorted most
+// recently updated first — that's the order both benches display.
 async function listShaders() {
   try {
     const files = (await readdir(SHADERS)).filter((f) => /\.frag$/i.test(f));
@@ -150,7 +151,7 @@ async function listShaders() {
       const s = await stat(path.join(SHADERS, name)).catch(() => null);
       if (s) shaders.push({ name, mtime: s.mtimeMs });
     }
-    return shaders;
+    return shaders.sort((a, b) => b.mtime - a.mtime);
   } catch {
     return [];
   }
