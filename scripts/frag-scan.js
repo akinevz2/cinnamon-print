@@ -145,7 +145,9 @@ export class FragBench {
 }
 
 // ---- Bench UI --------------------------------------------------------------
-// (auto-runs when the page loads; frag.html provides #bench)
+// (auto-runs when the page hosts #bench, i.e. the /frag page; the /cloud page
+// imports the class only and builds its own right-hand pane)
+if (document.getElementById("bench")) {
 const bench = new FragBench(1024, 1024);
 const grid = document.getElementById("bench");
 const status = document.getElementById("bench-status");
@@ -243,3 +245,4 @@ es.onmessage = (e) => {
 };
 es.onopen = () => refreshShaders();
 es.onerror = () => (status.textContent = "event stream down — retrying");
+} // end #bench auto-run guard

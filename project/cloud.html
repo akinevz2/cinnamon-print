@@ -29,6 +29,28 @@
   #plist .d { color:#567; font-size:11px; margin-top:3px; }
   #plist .dim { color:#456; cursor:default; }
   #plist .active { background:#12222e; }
+  /* right-hand frag pane: overlay, 50% width, no layout shift */
+  #fragpane { position:fixed; top:0; right:0; bottom:0; width:50vw;
+              background:#0b0f14; border-left:1px solid #234; padding:16px 14px;
+              overflow-y:auto; transform:translateX(100%); transition:transform .25s;
+              z-index:8; }
+  #fragpane.open { transform:translateX(0); }
+  #fragpane h4 { margin:0 0 10px; color:#8af; font-weight:normal; letter-spacing:2px; }
+  #fragtab { position:fixed; right:0; top:0; z-index:9; background:#0b0f14; color:#8af;
+             border:1px solid #234; border-right:none; padding:8px 10px; cursor:pointer;
+             font-size:16px; }
+  #scrim { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:7; display:none; }
+  #scrim.on { display:block; }
+  #frag-status { color:#567; font-size:12px; margin-bottom:12px; }
+  #frag-grid { display:flex; flex-wrap:wrap; gap:14px; }
+  .fcard { width:calc(50% - 8px); min-width:200px; }
+  .fcard .lbl { color:#8ac; font-size:11px; margin-bottom:4px; }
+  .fcard .card { border:1px solid #1c2a36; background:#0a1016; padding:6px; }
+  .fcard img { width:100%; display:block; cursor:grab; }
+  .fcard a { display:inline-block; margin:6px 8px 0 0; color:#68f; font-size:12px;
+             cursor:pointer; text-decoration:none; }
+  .fcard .frag-error { color:#f88; background:#180b0b; border:1px solid #421; padding:8px;
+                       font-size:11px; max-height:240px; overflow:auto; white-space:pre-wrap; }
 </style>
 </head>
 <body>
@@ -42,6 +64,13 @@
 <div id="status">connecting…</div>
 <img id="frame" hidden>
 <a id="final" hidden target="_blank"></a>
+<div id="scrim"></div>
+<button id="fragtab" title="fragments — live">&#9638;</button>
+<aside id="fragpane">
+  <h4>fragments — live</h4>
+  <div id="frag-status" class="dim">connecting…</div>
+  <div id="frag-grid"></div>
+</aside>
 <script>
   const fill = document.getElementById("fill");
   const status = document.getElementById("status");
@@ -123,6 +152,108 @@
     onEvent(d);
   };
   es.onopen = () => { status.textContent = "waiting for build events…"; };
+</script>
+<script type="module">
+  // Right-hand frag pane: live shader swatches (same renderer as /frag),
+  // opened via the top-right tab; overlay so the rest of the page never
+  // reflows; dismissed by clicking outside its bounds.
+  import { FragBench } from "/scripts/frag-scan.js";
+
+  const pane = document.getElementById("fragpane");
+  const scrim = document.getElementById("scrim");
+  const tab = document.getElementById("fragtab");
+  const grid = document.getElementById("frag-grid");
+  const fstatus = document.getElementById("frag-status");
+  const bench = new FragBench(512, 512);
+  const cache = new Map(); // name -> { mtime, node }
+
+  function openPane() {
+    pane.classList.add("open");
+    scrim.classList.add("on");
+    refresh(); // render lazily on first open
+  }
+  function closePane() {
+    pane.classList.remove("open");
+    scrim.classList.remove("on");
+  }
+  tab.onclick = () => pane.classList.contains("open") ? closePane() : openPane();
+  scrim.onclick = closePane;
+
+  async function refresh() {
+    let shaders = [];
+    try { shaders = await (await fetch("/api/shaders")).json(); }
+    catch { fstatus.textContent = "server unreachable"; return; }
+    const seen = new Set();
+    for (const { name, mtime } of shaders) {
+      seen.add(name);
+      const prev = cache.get(name);
+      if (prev && prev.mtime === mtime) continue; // unchanged on disk
+      if (prev) prev.node.remove();
+      const node = document.createElement("div");
+      node.className = "fcard";
+      const label = document.createElement("div");
+      label.className = "lbl";
+      label.textContent = name + " · seed=" + bench.seedFrom(name).toFixed(2);
+      node.append(label);
+      try {
+        const src = await (await fetch("/resources/shaders/" + name)).text();
+        const r = await bench.renderToImage(name, src);
+        const cardEl = document.createElement("div");
+        cardEl.className = "card";
+        if (r.error) {
+          const errBox = document.createElement("pre");
+          errBox.className = "frag-error";
+          errBox.textContent = `[${r.name}]\n${r.error}`;
+          cardEl.append(errBox);
+        } else {
+          // Native drag-out: the <img> itself (Chromium DownloadURL hint /
+          // Firefox serializes the image on drop).
+          const save = document.createElement("a");
+          save.href = r.dataUrl;
+          save.download = r.name.replace(/\.frag$/, "") + ".png";
+          save.textContent = "Save As";
+          const post = document.createElement("a");
+          post.textContent = "→ fragments";
+          post.onclick = async () => {
+            const res = await fetch("/api/fragments", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: r.name.replace(/\.frag$/, ""), dataUrl: r.dataUrl }),
+            });
+            post.textContent = res.ok ? "✓ dropped" : "✗ failed";
+            setTimeout(() => (post.textContent = "→ fragments"), 1500);
+          };
+          cardEl.append(r.img, save, post);
+        }
+        node.append(cardEl);
+        cache.set(name, { mtime, node });
+        grid.appendChild(node);
+      } catch {
+        const errBox = document.createElement("pre");
+        errBox.className = "frag-error";
+        errBox.textContent = `[${name}]\nfetch failed`;
+        node.append(errBox);
+      }
+    }
+    for (const [name, prev] of cache)
+      if (!seen.has(name)) {
+        prev.node.remove();
+        cache.delete(name);
+      }
+    fstatus.textContent = `${shaders.length} shader(s) live — drag a swatch to your file manager`;
+  }
+
+  const fes = new EventSource("/cloud/events");
+  fes.onmessage = (e) => {
+    if (e.data) {
+      const d = JSON.parse(e.data);
+      if (d.shaders) refresh();
+    }
+  };
+  fes.onopen = () => {
+    fstatus.textContent = "shader updates will appear live";
+  };
+  fes.onerror = () => (fstatus.textContent = "event stream down — retrying");
 </script>
 </body>
 </html>
