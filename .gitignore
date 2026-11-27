@@ -28,3 +28,7 @@ logs/
 
 # trashed projects/frag files — restorable by moving back to their original path
 .opencode/trash/
+
+# compose build products live inside project folders
+project/*/compose.html
+project/*/compose.body.html

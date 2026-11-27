@@ -12,8 +12,8 @@ a docker-in-a-folder composition package: give it fragment images, text, fonts a
 
 ## what it makes
 
-you describe a layout (`project/layout.json` — the full starter is
-`project/layout.example.json`):
+you describe a layout (`project/<stem>/layout.json` — one folder per
+project in the store; the full starter is `project/layout.example.json`):
 
 ```json
 {
@@ -43,9 +43,9 @@ elements like the footer sit outside the flow and survive any later arrange):
 git clone https://github.com/akinevz2/cinnamon-print
 cd cinnamon-print
 ./run.sh build
-make png                 # -> project/output/output.png
-make pdf                 # -> project/output/output.pdf
-make repl                # agent-assisted session in the container
+make png FILE=demo-example   # -> project/demo-example/output/demo-example.png
+make pdf FILE=demo-example   # -> project/demo-example/output/demo-example.pdf
+make repl                    # agent-assisted session in the container
 ```
 
 the only prerequisite is [docker](https://docs.docker.com/get-docker/). everything else
@@ -57,7 +57,7 @@ on first run, launches the repl session, and tears the container down on exit.
 
 ## how it works
 
-1. **describe it.** `project/layout.json` is the single source of truth: canvas, `fragment*.png` placements, text, fonts.
+1. **describe it.** each project is a folder in the store: `project/<stem>/layout.json` is its single source of truth: canvas, `fragment*.png` placements, text, fonts.
 2. **an agent places it.** in `make repl`, the opencode agent scans your fragments, lints the layout for overlaps and overflow, and proposes placements with you.
 3. **it renders.** a compose script generates html, applies a pandoc template, and renders png and pdf through headless chromium from the same layout.
 4. **it's a live loop.** the repl rebuilds the latest artifact on start, tracks your edits, and reports per-project build progress — every render (single-pass or iterative) shows up on the console automatically.
@@ -70,7 +70,7 @@ on first run, launches the repl session, and tears the container down on exit.
 - **`/`** — the project console (redirects to `/cloud`): live build-stage preview, per-project progress bars (a single render shows 1/1; iterative agent renders adaptively show N/(N+1) "in progress" until closed), and the project sidebar auto-opened on the **latest worked-on** artifact
 - **fragment library** — the right-hand pane: every `.frag` in `resources/shaders/` rendered live; drag keepers straight into `resources/fragments/`
 - **🗑 trash** — projects and frags delete with a confirmation; files move restorably to gitignored `.opencode/trash/`
-- **`/compose.html`** — the bare composed-artifact preview (what livereload refreshes)
+- **`/compose.html`** — the bare composed-artifact preview of the active project (what livereload refreshes)
 - **`/frag`** — the standalone frag bench
 
 ## status
@@ -133,11 +133,16 @@ cinnamon-print/
   project/                  # CODE + composition machinery
     templates/
       compose.html.tmpl     # pandoc template (agent-maintained, png AND pdf)
-    layout.json             # THE composition: canvas + fragment/text placement
-    layout.example.json     # copy this to layout.json to start
+    <stem>/                 # ONE FOLDER PER PROJECT (1:1) — the store
+      layout.json           #   the project's composition (canvas + placement)
+      project.json          #   optional metadata: title / prompt
+      output/               #   rendered artifacts + <stem>.progress state
+    cinnamon-print/         # the app's own artifacts when needful
+    templates/
+      compose.html.tmpl     # pandoc template (agent-maintained, png AND pdf)
+    layout.example.json     # starter layout — copy into a new project folder
     cloud.html              # project console page (/, /cloud)
     frag.html               # /frag — standalone frag bench page
-    output/                 # rendered artifacts land here
   resources/                # DATA — your media, kept separate from code
     fragments/              # your fragment*.png components go here
     shaders/                # agent-authored .frag shaders, watched live by the bench

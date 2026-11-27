@@ -24,7 +24,7 @@ SHELL := /bin/bash
 
 # FILE is the artifact *stem*; the target decides the extension.
 # Defaults: `make png` -> output.png, `make pdf` -> output.pdf.
-FILE ?= output
+FILE ?= $(shell cat project/.last-stem 2>/dev/null || echo output)
 
 # How docker is invoked (override, e.g. DOCKER="podman", for non-docker unix users).
 DOCKER ?= docker
@@ -185,7 +185,7 @@ BANNER_W ?= 2560
 BANNER_H ?= 1440
 FILL_SRC ?= resources/hec.56.png
 STEM     ?= banner
-OUTDIR   := project/output
+OUTDIR   := project/$(STEM)/output
 STEP     := $(OUTDIR)/$(STEM)
 # The chain root (step 001) has no predecessor; zero-pad to match step names.
 PCOUNT   := $(shell printf %03d $(COUNT))
