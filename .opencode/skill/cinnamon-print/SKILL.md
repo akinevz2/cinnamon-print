@@ -1,18 +1,18 @@
 ---
-name: imagework-compose
+name: cinnamon-print
 description: >
-  Interactive composition workflow for the imagework project: scan
+  Interactive composition workflow for the cinnamon-print project: scan
   fragment*.png components, compose and overlay them onto an output
   artifact (png or pdf) via the maintained Pandoc template, perform a
   linting pass with the user so every fragment has a logical assignment,
   and place custom fonts and custom text elements interactively.
   Use whenever the user asks to compose, rebuild, lint, or arrange
-  fragments/output artifacts in imagework.
+  fragments/output artifacts in cinnamon-print.
 ---
 
-# imagework compose
+# cinnamon-print compose
 
-You are working inside the imagework container (nix-built, containing
+You are working inside the cinnamon-print container (nix-built, containing
 pandoc, node, chromium and opencode). The project root is `/work`,
 with `project/` holding the working files.
 

@@ -1,8 +1,15 @@
 # cinnamon-print
 
+![cinnamon-print — Bernoulli cloud banner](resources/banner.png)
+
 A self-contained composition package: turn `fragment*.png` components plus
 custom fonts/text into a finished graphic artifact — png or pdf — using
 Pandoc templating, with an agent-assisted interactive mode.
+
+The banner above is the pipeline eating its own cooking: 256 alpha-masked,
+soft-shadowed instances of `hec.112.png` stamped by a Monte-Carlo fill, plus
+three live GLSL shader renders (title, subtext, signature) rasterized
+headlessly and composited at full 2560x1440 resolution.
 
 The whole environment (pandoc, node, chromium, opencode, all fonts config)
 is built with nix inside a docker container, so the only thing a user
@@ -32,7 +39,7 @@ cinnamon-print/
                             #   — read SHADER-NOTES.md before editing (Y-axis gotchas)
     fonts/                  # custom .ttf/.otf fonts go here
   .opencode/skill/
-    imagework-compose/      # skill loaded in interactive sessions (mounted in)
+    cinnamon-print/      # skill loaded in interactive sessions (mounted in)
 ```
 
 ## Quick start (no unix knowledge needed)
@@ -75,7 +82,7 @@ extension. Default is `output.png` / `output.pdf`.
 * Linting: the compose script fails (exit 2) if any `fragment*.png` on
   disk lacks a placement, or any placement references a missing file.
 * In interactive sessions (`make repl`), the opencode agent follows the
-  mounted `imagework-compose` skill: it scans fragments, performs the lint
+  mounted `cinnamon-print` skill: it scans fragments, performs the lint
   pass with you, proposes placements, maintains the template, and
   rebuilds both targets.
 

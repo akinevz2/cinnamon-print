@@ -25,6 +25,13 @@ fi
 rot=$((RANDOM % 360))
 px=$((RANDOM % canvas - 56)); py=$((RANDOM % canvas - 56))
 
+# Alpha-masked stamp: the source's background is opaque near-black. Keep the
+# original RGB (no colorspace conversion — that would gray it out) and derive
+# alpha from a grayscale clone via CopyOpacity, so overlapping instances
+# composite instead of cutting black boxes over each other.
+stamp=$(mktemp /tmp/ewc.XXXXXX.png)
+magick "$src" -alpha off \( +clone -colorspace Gray \) -compose CopyOpacity -composite "$stamp"
+
 if [ $((RANDOM % 2)) -eq 0 ]; then
 	# 1 canvas rotation
 	mode=SRT
@@ -36,13 +43,20 @@ else
 	args=$(awk -v a="$a" -v b="$b" 'BEGIN{printf "%f,%f,%f,%f", 1+a*b, a, b, 1}')
 fi
 
+rotimg=$(mktemp /tmp/ewc.XXXXXX.png)
+magick "$stamp" -background none -rotate "$rot" "$rotimg"
+shadow=$(mktemp /tmp/ewc.XXXXXX.png)
+magick "$rotimg" \( +clone -background black -shadow 55x6+0+0 \) +swap -background none -composite "$shadow"
+
 magick "$base" \
-	\( "$src" -background none -rotate "$rot" \) \
-	-geometry +"$px"+"$py" -composite \
+	\( "$shadow" -geometry +"$px"+"$py" \) \
+	\( "$rotimg" -geometry +"$px"+"$py" \) \
+	-composite \
 	-define distort:viewport="${canvas}x${canvas}" \
 	-virtual-pixel background -background '#000000' \
 	-distort "$mode" "$args" \
 	"$target"
+rm -f "$stamp" "$rotimg" "$shadow"
 [ $((10#$n)) -eq 1 ] && rm -f "$base"
 
 filled=$(( n * 24 / count ))

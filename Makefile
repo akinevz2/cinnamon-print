@@ -64,7 +64,7 @@ pdf: $(IMAGE_STAMP)
 
 ## ---- interactive development ------------------------------------------
 
-# "REPL" work: an opencode session with the imagework-compose skill loaded,
+# "REPL" work: an opencode session with the cinnamon-print skill loaded,
 # fully inside the nix container. This is the DEFAULT `make` target: it runs
 # the livereload server in the background AND the opencode TUI in the
 # foreground, so the agent (and you) can preview renders, the cloud fill and
