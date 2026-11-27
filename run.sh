@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# imagework helper for non-unix users. Usage:
+# cinnamon-print helper for non-unix users. Usage:
 #   ./run.sh build   # build the container (first time)
 #   ./run.sh repl    # interactive agent session
 #   ./run.sh serve   # livereload preview
 #   ./run.sh png|pdf [FILE]
 set -euo pipefail
 cd "$(dirname "$0")"
-IMAGE=imagework
+IMAGE=cinnamon-print
 VOL="-v $(pwd):/work -w /work"
 PORT_FWD="-p 8899:8899"
 

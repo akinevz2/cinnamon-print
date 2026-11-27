@@ -1,4 +1,4 @@
-# imagework — artifact composition
+# cinnamon-print — artifact composition
 #
 # Usage:
 #   make                     # = make repl (default): container + serve + opencode TUI
@@ -28,7 +28,7 @@ FILE ?= output
 
 # How docker is invoked (override, e.g. DOCKER="podman", for non-docker unix users).
 DOCKER ?= docker
-IMAGE  ?= imagework
+IMAGE  ?= cinnamon-print
 
 # Mount the whole folder so the skill, templates and fragments are all visible.
 VOL := -v "$(CURDIR)":/work -w /work
@@ -162,9 +162,9 @@ build-image:
 
 # Zip the whole folder (minus outputs) so non-unix users can distribute it.
 dist:
-	rm -f imagework.zip
-	zip -r imagework.zip . -x '*.zip' -x 'project/output/*' -x 'node_modules/*' -x '.git/*' -x 'result*' -x '.image-built'
-	@echo "wrote imagework.zip"
+	rm -f cinnamon-print.zip
+	zip -r cinnamon-print.zip . -x '*.zip' -x 'project/output/*' -x 'node_modules/*' -x '.git/*' -x 'result*' -x '.image-built'
+	@echo "wrote cinnamon-print.zip"
 
 clean:
 	rm -f project/output/*.png project/output/*.pdf project/compose.html

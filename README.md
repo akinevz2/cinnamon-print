@@ -1,4 +1,4 @@
-# imagework
+# cinnamon-print
 
 A self-contained composition package: turn `fragment*.png` components plus
 custom fonts/text into a finished graphic artifact — png or pdf — using
@@ -11,7 +11,7 @@ needs is docker. No unix knowledge required.
 ## Layout
 
 ```text
-imagework/
+cinnamon-print/
   Makefile                  # entry point for everything
   Dockerfile                # docker build, environment from nix (flake.nix)
   flake.nix                 # the nix "buildfile": packages for the container
@@ -45,7 +45,7 @@ imagework/
 1. Install Docker https://docs.docker.com/get-docker/.
 2. Open a terminal in this folder and run:
    * Linux/macOS: `./run.sh build` then `./run.sh repl`
-   * Windows: work in progress — `run.bat` is not complete yet; the docker commands (`docker build -t imagework .`) work from PowerShell in principle
+   * Windows: work in progress — `run.bat` is not complete yet; the docker commands (`docker build -t cinnamon-print .`) work from PowerShell in principle
 
 ## Everyday commands
 
@@ -82,7 +82,7 @@ extension. Default is `output.png` / `output.pdf`.
 ## Work in Progress: Frag Bench (Live Shader Synthesis)
 
 To generate custom abstract textures and raster elements without adding heavy
-GPU dependencies to the Docker container, `imagework` leverages your active
+GPU dependencies to the Docker container, `cinnamon-print` leverages your active
 browser session (`make serve`) as a client-side WebGL worker:
 
 1. **Agent Shader Authoring:** During a `make repl` session, ask the opencode
