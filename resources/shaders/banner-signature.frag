@@ -5,13 +5,13 @@ uniform float u_time;
 uniform float u_seed;
 out vec4 outColor;
 
-// "akinevz.dev" — the hand-tuned glyphs and kerning from example.frag,
-// on a transparent background (alpha set) so it composites onto the
-// Bernoulli cloud banner as a bottom-right signature. Color: #feef69.
+// "made by akinevz.com" — the hand-tuned glyphs and kerning style from
+// example.frag (new glyphs drawn to match), on a transparent background
+// (alpha set) so it composites onto the Bernoulli cloud banner as a
+// bottom-right signature. Color: #feef69.
 
-const int TEXT_LEN = 11;
-const int TEXT[TEXT_LEN] = int[TEXT_LEN](97, 107, 105, 110, 101, 118, 122, 46, 100, 101, 118); // akinevz.dev
-const int GW[TEXT_LEN]   = int[TEXT_LEN](4, 4, 1, 4, 4, 5, 3, 1, 4, 4, 5); // 6px for 'd' pre-fix; uniform 5 below
+const int TEXT_LEN = 19;
+const int TEXT[TEXT_LEN] = int[TEXT_LEN](109, 97, 100, 101, 32, 98, 121, 32, 97, 107, 105, 110, 101, 118, 122, 46, 99, 111, 109); // made by akinevz.com
 
 // 8-row bitmap font cells, rows top-down (flipped at lookup — SHADER-NOTES.md).
 bool glyph(int c, ivec2 cell, int w) {
@@ -27,6 +27,11 @@ bool glyph(int c, ivec2 cell, int w) {
   else if (c == 122){ rows = int[8](0, 31, 2, 4, 8, 16, 31, 0);     } // z
   else if (c == 46) { rows = int[8](0, 0, 0, 0, 0, 0, 1, 0);        } // .
   else if (c == 100){ rows = int[8](1, 1, 15, 17, 17, 17, 15, 0);   } // d — vertical stem doubles as the bowl's right wall
+  else if (c == 109){ rows = int[8](0, 27, 21, 21, 21, 21, 0, 0);   } // m
+  else if (c == 98) { rows = int[8](0, 16, 16, 28, 18, 18, 28, 0);  } // b
+  else if (c == 121){ rows = int[8](0, 17, 17, 17, 10, 4, 8, 0);    } // y — tail descends one row, like the k
+  else if (c == 99) { rows = int[8](0, 14, 17, 16, 16, 17, 14, 0);  } // c
+  else if (c == 111){ rows = int[8](0, 14, 17, 17, 17, 17, 14, 0);  } // o
   else return false;
   int shift = w - 1 - cell.x;
   return ((rows[row] >> shift) & 1) == 1;
@@ -42,9 +47,9 @@ float gapAfter(int i) {
   return tight ? 0.0 : 1.0;
 }
 
-// Glyph advance width: 1px for the '.', 5px for everything else.
+// Glyph advance width: 1px for '.', 3px for space, 5px for everything else.
 float glyphW(int c) {
-  return c == 46 ? 1.0 : 5.0;
+  return c == 46 ? 1.0 : (c == 32 ? 3.0 : 5.0);
 }
 
 const float S = 3.0;                    // glyph pixel scale
