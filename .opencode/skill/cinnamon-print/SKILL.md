@@ -190,6 +190,42 @@ for an image effect ImageMagick can't do. The limits:
 After generating: new files in `resources/fragments/` become lint subjects —
 assign them placements in `layout.json` (see the responsibilities above).
 
+## Compositing guidance — procedural pieces: math first, pixels last
+
+**The transform-chain equivalence.** A monte-carlo-style build where every
+step is "stamp an element, then affinely transform the whole canvas" has
+an exact closed form: element *i*'s final position is its placement point
+pushed through the PRODUCT of all subsequent step transforms
+(T_N ∘ … ∘ T_{i+1}). So prefer to:
+
+1. pre-generate the per-step transform parameters (rotation/shear/affine),
+2. accumulate each element's matrix,
+3. place every element ONCE at its final, already-distorted position
+   (`magick -distort SRT/affine` per element, or pre-rotated sprites).
+
+Same visual result as N rasterize-and-warp passes, but exact (no
+resampling-of-resampling blur), resolution-independent, and orders of
+magnitude faster. `scripts/cloud-step.sh` remains useful as the
+streaming-preview mechanism — emit progress per step through
+`scripts/progress.sh` so the console bar still tells the story.
+
+**Text exclusion by construction.** Don't pixel-probe the rendered canvas
+to avoid stamping over text — compute the text keep-out geometry in FINAL
+coordinates (layout.mjs measures real text boxes), transform it with the
+same accumulated matrices, and reject/skip stamps that intersect it
+(bounding circle for round-ish elements, the stretched rect for sheared
+ones). Exclusion then holds by construction, at any step count.
+
+**When NOT to use this.** The equivalence only holds for RIGID elements
+under affine chains. If a step needs non-affine or intensity-space ops
+(blur, pixelate, blend, color grading per step), stream it the slow way
+(rasterize each step) or fold the effect into the per-element pass.
+Know which kind of step you're in before choosing.
+
+**General principle**: before writing a per-step raster loop, ask whether
+the loop's net effect on each element is a closed-form transform. Pixels
+are an implementation detail; the composition is geometry.
+
 ## Session workflow
 
 1. Scan fragments; run the lint comparison (disk vs layout.json).
