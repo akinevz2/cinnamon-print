@@ -19,5 +19,9 @@ node_modules/
 # repl runs, lives in the repo dir but is never committed
 .opencode/cache/
 
+# repl session logs (livereload server + compose output) — /work/logs in the
+# container, mounted bidirectionally with the repo
+logs/
+
 # windows zone-identifier droppings
 *Zone.Identifier*

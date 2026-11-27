@@ -16,9 +16,10 @@ set -u
 stem="$(cat project/output/.last-stem 2>/dev/null || true)"
 stem="${stem:-output}"
 echo "rebuilding latest artifact: $stem"
-node scripts/compose.mjs png "$stem" >>/tmp/serve.log 2>&1 || true
+mkdir -p logs
+node scripts/compose.mjs png "$stem" >>logs/serve.log 2>&1 || true
 
-node scripts/serve.mjs >>/tmp/serve.log 2>&1 &
+node scripts/serve.mjs >>logs/serve.log 2>&1 &
 server=$!
 
 setsid opencode
@@ -27,6 +28,6 @@ rc=$?
 echo "session ended (rc=$rc)"
 kill "$server" 2>/dev/null || true
 if [ "$rc" != 0 ]; then
-    tail -n 20 /tmp/serve.log
+    tail -n 20 logs/serve.log
 fi
 exit "$rc"
