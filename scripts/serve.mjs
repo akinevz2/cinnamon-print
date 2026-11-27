@@ -8,7 +8,7 @@ import http from "node:http";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { watch } from "node:fs";
-import { rename, mkdir } from "node:fs/promises";
+import { rename, mkdir, chmod } from "node:fs/promises";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PROJECT = path.join(ROOT, "project");
@@ -113,6 +113,10 @@ const server = http.createServer(async (req, res) => {
         const dst = path.join(TRASH, rel);
         await mkdir(path.dirname(dst), { recursive: true });
         await rename(src, dst);
+        // the container runs as root — hand ownership back to the host user
+        // so restores/deletes from the host side just work
+        await chmod(dst, 0o666).catch(() => {});
+        await chmod(path.dirname(dst), 0o777).catch(() => {});
         moved.push(rel);
       };
       if (body.project) {
