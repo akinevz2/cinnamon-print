@@ -13,7 +13,7 @@
  *     -> chromium headless (screenshot for png, print-to-pdf for pdf)
  *     -> project/output/<stem>.<ext>
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, chownSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -150,8 +150,8 @@ const ITER_WINDOW = 15 * 60 * 1000;
 let step, total;
 if (REBUILD) {
   step = 1; total = 1;                       // housekeeping render: no claims
-} else if (!prev || !prev.time || now - prev.time > ITER_WINDOW) {
-  step = 1; total = 1;                       // fresh build: done after this render
+} else if (!prev || !prev.time || now - prev.time > ITER_WINDOW || prev.total <= 1) {
+  step = 1; total = 1;                       // fresh build (or re-render of a closed one): done after this render
 } else {
   step = prev.step + 1; total = step + 1;    // iterating: never quite "done"
 }
@@ -163,8 +163,6 @@ if (!REBUILD) {
      `make repl` reads this to rebuild the latest artifact on session start */
   writeFileSync(path.join(PROJECT, "output", ".last-stem"), stem);
 }
-
-console.log(process.exitCode ? "compose finished WITH LINT ERRORS (exit 2)" : `wrote ${out}`);
 
 /* pandoc writes each line on its own source line inside the div; under
    white-space:pre-wrap every raw newline renders as an extra break (a
@@ -193,5 +191,12 @@ if (target === "png") {
     `file:///${path.join(PROJECT, "compose.html")}`,
   ], { cwd: PROJECT, stdio: "inherit" });
 }
+
+/* hand ownership of container-written files back to the host user (the
+   container runs as root; without this, output files are root-owned and
+   the host user can't overwrite or delete them) */
+const HOST_UID = +(process.env.HOST_UID ?? 1000);
+for (const f of [path.join(PROJECT, out), PROG, path.join(PROJECT, "output", ".last-stem")])
+  try { chownSync(f, HOST_UID, HOST_UID); } catch {}
 
 console.log(process.exitCode ? "compose finished WITH LINT ERRORS (exit 2)" : `wrote ${out}`);
