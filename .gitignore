@@ -25,3 +25,6 @@ logs/
 
 # windows zone-identifier droppings
 *Zone.Identifier*
+
+# trashed projects/frag files — restorable by moving back to their original path
+.opencode/trash/

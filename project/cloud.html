@@ -23,7 +23,7 @@
   #tab { position:fixed; left:0; top:0; z-index:6; background:#0b0f14; color:#8af;
          border:1px solid #234; border-left:none; padding:8px 10px; cursor:pointer; font-size:16px; }
   #plist { list-style:none; margin:0; padding:0; }
-  #plist li { padding:8px 6px; border-bottom:1px solid #182028; cursor:pointer; }
+  #plist li { padding:8px 6px; border-bottom:1px solid #182028; cursor:pointer; position:relative; }
   #plist li:hover { background:#101820; }
   #plist .t { color:#cde; }
   #plist .d { color:#567; font-size:11px; margin-top:3px; }
@@ -33,6 +33,11 @@
   #plist .mini { height:4px; background:#0a0a0a; border:1px solid #234; margin-top:5px; }
   #plist .mini i { display:block; height:100%; width:0%; background:linear-gradient(90deg,#258,#8cf); transition:width .2s; }
   #plist .steps { color:#689; font-size:10px; margin-top:2px; }
+  /* pronounced trash buttons: always visible, red on hover */
+  .trash { position:absolute; top:6px; right:8px; border:1px solid #633; background:#200a0a;
+           color:#d66; border-radius:4px; cursor:pointer; font-size:13px; padding:2px 7px;
+           opacity:.75; }
+  .trash:hover { background:#7a0b0b; color:#fff; opacity:1; }
   /* right-hand frag pane: overlay, 50% width, no layout shift */
   #fragpane { position:fixed; top:0; right:0; bottom:0; width:50vw;
               background:#0b0f14; border-left:1px solid #234; padding:16px 14px;
@@ -152,7 +157,22 @@
       d.textContent = `${p.file}${p.updated ? " · " + new Date(p.updated).toLocaleString() : ""}`;
       if (p.prompt) d.title = p.prompt;         // prompt summary on hover
       li.append(t, d);
-      li.onclick = () => select(p, li);
+      li.onclick = (ev) => { if (ev.target.closest(".trash")) return; select(p, li); };
+      const tr = document.createElement("button");
+      tr.className = "trash"; tr.textContent = "🗑"; tr.title = "delete project (restorable)";
+      tr.onclick = async (ev) => {
+        ev.stopPropagation();
+        const stem = p.file.replace(/\.png$/i, "");
+        if (!confirm(`Delete project "${p.title}"?\n\nIts artifact (png/pdf), metadata and progress move to\n.opencode/trash/ — restorable by moving them back.`)) return;
+        try {
+          const r = await fetch("/api/trash", { method: "POST", body: JSON.stringify({ project: stem }) });
+          const out = await r.json();
+          if (out.error) throw new Error(out.error);
+          if (activeFile === p.file) { activeFile = null; frame.hidden = true; status.textContent = "deleted " + p.title; }
+          refreshProjects();
+        } catch (e) { alert("trash failed: " + e.message); }
+      };
+      li.appendChild(tr);
       li.insertAdjacentHTML("beforeend", miniBar(p.file.replace(/\.png$/i, "")));
       if (p.prompt) {
         const pr = document.createElement("div"); pr.className = "d";
@@ -242,6 +262,20 @@
       const cardEl = document.createElement("div");
       cardEl.className = "card";
       cardEl.textContent = "rendering…";
+      const tr = document.createElement("button");
+      tr.className = "trash"; tr.textContent = "🗑"; tr.title = "delete frag (restorable)";
+      tr.onclick = async (ev) => {
+        ev.stopPropagation();
+        if (!confirm(`Delete frag "${name}"?\n\nIt moves to .opencode/trash/resources/shaders/ —\nrestorable by moving it back.`)) return;
+        try {
+          const r = await fetch("/api/trash", { method: "POST", body: JSON.stringify({ shader: name }) });
+          const out = await r.json();
+          if (out.error) throw new Error(out.error);
+          cache.delete(name);
+          node.remove();
+        } catch (e) { alert("trash failed: " + e.message); }
+      };
+      label.appendChild(tr);
       node.append(label, cardEl);
       cache.set(name, { mtime, node });
       grid.appendChild(node);

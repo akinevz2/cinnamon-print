@@ -8,6 +8,7 @@ import http from "node:http";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { watch } from "node:fs";
+import { rename, mkdir } from "node:fs/promises";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PROJECT = path.join(ROOT, "project");
@@ -88,6 +89,55 @@ const server = http.createServer(async (req, res) => {
   // as fragment-<name>.png (cross-browser; also works from the container).
   if (req.url === "/api/fragments" && req.method === "POST") {
     await saveFragment(req, res);
+    return;
+  }
+
+  // Trash: move a project or a frag out of the workspace, restorably — files
+  // land in .opencode/trash/<same-relative-path> (gitignored). Body:
+  //   {"project": "<stem>"}  → moves output/<stem>.(png|pdf|json|progress)
+  //   {"shader": "<name.frag>"} → moves resources/shaders/<name>
+  // RESTORE: move the files back from .opencode/trash/ to their original
+  // relative path (the tree under trash mirrors it).
+  if (req.url === "/api/trash" && req.method === "POST") {
+    try {
+      const body = await new Promise((resolve, reject) => {
+        let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => resolve(JSON.parse(b || "{}")));
+      });
+      const TRASH = path.join(ROOT, ".opencode", "trash");
+      const moved = [];
+      const quietMove = async (rel) => {
+        const src = path.join(ROOT, rel);
+        if (!src.startsWith(path.join(ROOT, "project", "output")) &&
+            !src.startsWith(path.join(ROOT, "resources", "shaders"))) throw new Error("untrashable path: " + rel);
+        await stat(src);                                     // throws if absent — quiet skip
+        const dst = path.join(TRASH, rel);
+        await mkdir(path.dirname(dst), { recursive: true });
+        await rename(src, dst);
+        moved.push(rel);
+      };
+      if (body.project) {
+        const stem = String(body.project).replace(/[^a-z0-9._-]/gi, "");
+        for (const ext of ["png", "pdf", "json", "progress"])
+          await quietMove(`project/output/${stem}.${ext}`).catch(() => {});
+        // a trashed stem can no longer be the "last" one
+        try {
+          const ls = path.join(OUTPUT, ".last-stem");
+          if ((await readFile(ls, "utf8")).trim() === stem) await rename(ls, path.join(TRASH, "output/.last-stem"));
+        } catch {}
+        cloudBroadcast({ projects: 1 });
+      } else if (body.shader) {
+        const name = String(body.shader).replace(/[\/\\]/g, "");
+        await quietMove(`resources/shaders/${name}`);
+        cloudBroadcast({ shaders: 1 });
+      } else {
+        throw new Error("pass {\"project\": stem} or {\"shader\": name}");
+      }
+      res.writeHead(200, { "Content-Type": MIME[".json"] });
+      res.end(JSON.stringify({ trashed: moved }));
+    } catch (e) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
