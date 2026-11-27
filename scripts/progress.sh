@@ -18,5 +18,5 @@ pct=$(( total > 0 ? step * 100 / total : 0 ))
 label=${label//\"/\'}
 label=${label//$'\n'/ }
 
-printf '{"stem":"%s","step":%d,"total":%d,"pct":%d,"label":"%s"}\n' \
-    "$stem" "$step" "$total" "$pct" "$label" > "$dir/$stem.progress"
+printf '{"stem":"%s","step":%d,"total":%d,"pct":%d,"label":"%s","time":%s}\n' \
+    "$stem" "$step" "$total" "$pct" "$label" "$(date +%s000)" > "$dir/$stem.progress"

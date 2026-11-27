@@ -87,15 +87,22 @@ const elements = (layout.elements ?? []).map((el, i) => {
   }
 }).join("\n");
 
-/* every fragment on disk must have a logical assignment */
+/* every fragment on disk must have a logical assignment — unless the layout
+   opts out via "lint": {"requireFragmentAssignment": false} (then it's a warning) */
 const assigned = new Set((layout.elements ?? [])
   .filter((e) => e.type === "fragment")
   .map((e) => path.basename(e.src)));
+const requireAssignment = (layout.lint ?? {}).requireFragmentAssignment !== false;
 for (const f of fragmentFiles) {
   if (!assigned.has(f)) {
-    console.error(`LINT: fragment 'fragments/${f}' exists but has no ` +
-      `assignment in layout.json — position it or remove the file`);
-    process.exitCode = 2;
+    if (requireAssignment) {
+      console.error(`LINT: fragment 'fragments/${f}' exists but has no ` +
+        `assignment in layout.json — position it or remove the file`);
+      process.exitCode = 2;
+    } else {
+      console.warn(`LINT (relaxed): fragment 'fragments/${f}' has no assignment ` +
+        `in layout.json — unassigned fragments allowed by lint.requireFragmentAssignment=false`);
+    }
   }
 }
 
@@ -126,10 +133,30 @@ execFileSync("pandoc", pandocArgs, { cwd: PROJECT, stdio: "inherit" });
 
 /* remember the last-rendered stem — `make repl` uses it to rebuild the
    latest artifact on session start without guessing "most recent file" */
-console.log(process.exitCode ? "compose finished WITH LINT ERRORS (exit 2)" : `wrote ${out}`);
+/* auto-adaptive progress: a single render = 1/1 (done); rapid re-renders of
+   the same stem = an ITERATIVE build — the bar shows N/(N+1) "in progress"
+   after each pass until an explicit final emission (or the window passes).
+   `make repl` / `make serve` therefore pick up multi-step rendering
+   automatically — no special invocation. */
+const PROG = path.join(PROJECT, "output", `${stem}.progress`);
+const now = Date.now();
+let prev = null;
+try { prev = JSON.parse(readFileSync(PROG, "utf8")); } catch {}
+const ITER_WINDOW = 15 * 60 * 1000;
+let step, total;
+if (!prev || !prev.time || now - prev.time > ITER_WINDOW) {
+  step = 1; total = 1;                       // fresh build: done after this render
+} else {
+  step = prev.step + 1; total = step + 1;    // iterating: never quite "done"
+}
+const autoLabel = step === 1 ? "output ready" : `iteration ${step} — in progress`;
+writeFileSync(PROG, JSON.stringify({ stem, step, total, pct: Math.round(step * 100 / total), label: autoLabel, time: now }));
+
 /* remember the stem only after a render actually produced the file —
    `make repl` reads this to rebuild the latest artifact on session start */
 writeFileSync(path.join(PROJECT, "output", ".last-stem"), stem);
+
+console.log(process.exitCode ? "compose finished WITH LINT ERRORS (exit 2)" : `wrote ${out}`);
 
 /* pandoc writes each line on its own source line inside the div; under
    white-space:pre-wrap every raw newline renders as an extra break (a
