@@ -1,0 +1,10 @@
+{
+  "title": "the crew member rambles (ship-crew × cheese-ramble)",
+  "canvas": { "width": 1200, "height": 1200, "background": "#200a08" },
+  "lint": { "requireFragmentAssignment": false },
+  "elements": [
+    { "type": "fragment", "src": "fragment-ship-crew-background.png", "x": -72, "y": 0, "w": 1344 },
+    { "type": "fragment", "src": "fragment-cheese-ramble-keyed.png", "x": 0, "y": 0, "w": 1200 },
+    { "type": "fragment", "src": "fragment-ship-crew-cutout.png", "x": -27, "y": 338, "w": 348 }
+  ]
+}
