@@ -41,8 +41,12 @@ the only prerequisite is [docker](https://docs.docker.com/get-docker/). everythi
 | works today | still being sanded |
 | :--- | :--- |
 | single-shot png and pdf (`make png` / `make pdf`) | linux agent REPL (experimental) |
-| layout lint (`make check-layout`) and auto-stacking (`make arrange`) | windows support (work in progress) |
-| livereload preview on `localhost:8899` (`make serve`) | frag bench: live shader synthesis |
+| layout lint (`make check-layout`) and auto-stacking (`make arrange`) | frag bench: live shader synthesis |
+| livereload preview on `localhost:8899` (`make serve`) | linux agent REPL (experimental) |
+
+**windows**: run `requirements.bat` once (installs GNU Make + Docker Desktop via
+winget), then `run.bat` — it starts the docker engine if needed, builds the image
+on first run, launches the repl session, and tears the container down on exit.
 
 ## frag bench: shaders without a gpu in the container
 
@@ -55,7 +59,7 @@ pipeline takes over. conventions live in `resources/shaders/SHADER-NOTES.md`.
 <summary>project layout</summary>
 
 ```text
-imagework/
+cinnamon-print/
   Makefile                  # entry point for everything (bare `make` = interactive session)
   Dockerfile                # docker build, environment from nix (flake.nix)
   flake.nix                 # the nix "buildfile": packages for the container
