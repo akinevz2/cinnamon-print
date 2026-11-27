@@ -61,9 +61,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Project list (sidebar data): outputs + metadata sidecars.
+  if (req.url === "/api/projects") {
+    const projects = await listProjects();
+    res.writeHead(200, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
+    res.end(JSON.stringify(projects));
+    return;
+  }
+
   // Cloud fill preview page.
-  if (req.url === "/cloud" || req.url === "/cloud/") {
-    try {
+  if (req.url === "/cloud" || req.url === "/cloud/") {    try {
       const body = await readFile(path.join(PROJECT, "cloud.html"));
       res.writeHead(200, { "Content-Type": MIME[".html"] });
       res.end(body);
@@ -134,6 +141,33 @@ function cloudBroadcast(obj) {
   for (const c of cloudClients) c.write(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
+// ---- project list: outputs on disk + their metadata sidecars --------------
+// Final artefacts = output/*.png without a step suffix (_NNN.png). Metadata
+// (title/prompt container) comes from the sibling <stem>.json sidecar.
+async function listProjects() {
+  let files = [];
+  try {
+    files = (await readdir(OUTPUT)).filter((f) => /\.png$/i.test(f) && !/_\d+\.png$/.test(f));
+  } catch {
+    return [];
+  }
+  const projects = [];
+  for (const f of files) {
+    const stem = f.replace(/\.png$/i, "");
+    const full = path.join(OUTPUT, f);
+    let meta = {};
+    try { meta = JSON.parse(await readFile(path.join(OUTPUT, `${stem}.json`), "utf8")); } catch {}
+    const s = await stat(full).catch(() => null);
+    projects.push({
+      file: f,
+      title: meta.title ?? stem,
+      prompt: meta.prompt ?? "",
+      updated: s ? s.mtime.toISOString() : null,
+    });
+  }
+  return projects.sort((a, b) => (a.updated < b.updated ? 1 : -1));
+}
+
 async function pumpProgress() {
   const parsed = await readProgressLog();
   // Guard against an offset ahead of the (possibly truncated) log.
@@ -150,6 +184,8 @@ function progressChanged(f) {
   }
   if (/\.png$/i.test(f ?? "") && !/_\d+\.png$/.test(f) && cloudStem && f === `${cloudStem}.png`)
     cloudBroadcast({ artifact: f });
+  // Any final png appearing/changing refreshes the sidebar on all clients.
+  if (/\.png$/i.test(f ?? "") && !/_\d+\.png$/.test(f)) cloudBroadcast({ projects: 1 });
 }
 
 // On boot, position the tail at the existing log (don't replay history).

@@ -11,6 +11,9 @@
 #   make check-layout        # report text overlaps / canvas overflow
 #   make arrange             # algorithmically re-stack text, no overlaps
 #   make dist                # zip the whole folder for distribution
+#   make meta FILE=banner TITLE=".." PROMPT=".."
+#                            # write title/prompt metadata for an output
+#                            # (shows in the /cloud preview sidebar)
 #   make cloud               # bernoulli/monte-carlo fill: project/output/banner.png
 #   make cloud COUNT=8 STEM=cloud-test   # quick 8-instance test render
 
@@ -127,11 +130,16 @@ $(STEP).png: $(STEP)_$(PCOUNT).png
 	magick $< -gravity center -crop $(BANNER_W)x$(BANNER_H)+0+0 +repage $@
 	@echo "banner written: $@"
 
-.PHONY: cloud cloud-clean
+.PHONY: cloud cloud-clean meta
 cloud: $(STEP).png
 
 cloud-clean:
 	rm -f $(STEP)_*.png $(STEP).png project/output/cloud-progress.log
+
+# Attach title/prompt metadata to an output (drives the /cloud sidebar):
+#   make meta FILE=banner TITLE="Monte-Carlo cloud" PROMPT="256 hec.56 tiles…"
+meta:
+	@FILE="$(FILE)" TITLE="$(TITLE)" PROMPT="$(PROMPT)" node scripts/meta.mjs
 
 
 build-image:

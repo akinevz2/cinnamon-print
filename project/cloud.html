@@ -14,9 +14,29 @@
   #status { color:#999; }
   img { max-width:92vw; max-height:74vh; border:1px solid #222; image-rendering:pixelated; }
   a { color:#68f; }
+  /* collapsible left sidebar */
+  #side { position:fixed; left:0; top:0; bottom:0; width:280px; background:#0b0f14;
+          border-right:1px solid #234; padding:16px 12px; overflow-y:auto;
+          transition:transform .25s; z-index:5; }
+  #side.hidden { transform:translateX(-100%); }
+  #side h4 { margin:0 0 10px; color:#8af; font-weight:normal; letter-spacing:2px; }
+  #tab { position:fixed; left:0; top:0; z-index:6; background:#0b0f14; color:#8af;
+         border:1px solid #234; border-left:none; padding:8px 10px; cursor:pointer; font-size:16px; }
+  #plist { list-style:none; margin:0; padding:0; }
+  #plist li { padding:8px 6px; border-bottom:1px solid #182028; cursor:pointer; }
+  #plist li:hover { background:#101820; }
+  #plist .t { color:#cde; }
+  #plist .d { color:#567; font-size:11px; margin-top:3px; }
+  #plist .dim { color:#456; cursor:default; }
+  #plist .active { background:#12222e; }
 </style>
 </head>
 <body>
+<button id="tab" title="projects">&#9776;</button>
+<aside id="side">
+  <h4>projects</h4>
+  <ul id="plist"><li class="dim">loading…</li></ul>
+</aside>
 <h3>cloud fill — live preview</h3>
 <div class="bar"><div class="fill" id="fill"></div></div>
 <div id="status">connecting…</div>
@@ -45,8 +65,55 @@
     }
   }
 
+  // Collapsible project sidebar.
+  const side = document.getElementById("side");
+  const plist = document.getElementById("plist");
+  let activeFile = null;
+
+  document.getElementById("tab").onclick = () => side.classList.toggle("hidden");
+  side.classList.add("hidden"); // start collapsed
+
+  async function refreshProjects() {
+    let projects = [];
+    try { projects = await (await fetch("/api/projects")).json(); } catch {}
+    if (!projects.length) {
+      plist.innerHTML = '<li class="dim">no outputs yet</li>';
+      return;
+    }
+    plist.innerHTML = "";
+    for (const p of projects) {
+      const li = document.createElement("li");
+      if (p.file === activeFile) li.classList.add("active");
+      const t = document.createElement("div"); t.className = "t"; t.textContent = p.title;
+      const d = document.createElement("div"); d.className = "d";
+      d.textContent = `${p.file}${p.updated ? " · " + new Date(p.updated).toLocaleString() : ""}`;
+      if (p.prompt) d.title = p.prompt;         // prompt summary on hover
+      li.append(t, d);
+      li.onclick = () => {
+        activeFile = p.file;
+        frame.hidden = false;
+        frame.src = "/output/" + p.file + "?v=" + Date.now();
+        status.textContent = "viewing " + p.title;
+        side.classList.add("hidden");
+        refreshProjects();                       // re-mark active
+      };
+      if (p.prompt) {
+        const pr = document.createElement("div"); pr.className = "d";
+        pr.textContent = p.prompt.length > 80 ? p.prompt.slice(0, 80) + "…" : p.prompt;
+        li.appendChild(pr);
+      }
+      plist.appendChild(li);
+    }
+  }
+  refreshProjects();
+
   const es = new EventSource("/cloud/events");
-  es.onmessage = (e) => { if (e.data) onEvent(JSON.parse(e.data)); };
+  es.onmessage = (e) => {
+    if (!e.data) return;
+    const d = JSON.parse(e.data);
+    if (d.projects) { refreshProjects(); return; }
+    onEvent(d);
+  };
   es.onopen = () => { status.textContent = "waiting for build events…"; };
 </script>
 </body>
