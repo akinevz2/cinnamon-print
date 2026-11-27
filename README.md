@@ -37,10 +37,15 @@ imagework/
 
 ## Quick start (no unix knowledge needed)
 
+> **Support status:** current support assumes some basic understanding of
+> terminals and agentic coding. the Linux REPL (`make repl` / `./run.sh repl`)
+> is **experimental**; Windows support is a **work in progress** (the
+> `run.bat` path is not yet complete).
+
 1. Install Docker https://docs.docker.com/get-docker/.
 2. Open a terminal in this folder and run:
    * Linux/macOS: `./run.sh build` then `./run.sh repl`
-   * Windows: `docker build -t imagework .` then `make repl` equivalents in `run.bat`
+   * Windows: work in progress — `run.bat` is not complete yet; the docker commands (`docker build -t imagework .`) work from PowerShell in principle
 
 ## Everyday commands
 
