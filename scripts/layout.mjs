@@ -270,14 +270,16 @@ if (cmd === "check") {
   /* two passes: measurements depend on column width, which arrange sets.
      Pass 1 sets widths with estimates; pass 2 re-measures and re-stacks.
      Grouping is classified once from the pristine elements. */
-  const groups = classify(textEls);
-  arrange(textEls, groups, (el) => estimateBox(el));
-  const remeasured = measureBoxes(textEls);
+  /* elements with "pinned": true (footers, watermarks) are left untouched */
+  const movable = textEls.filter((e) => !e.pinned);
+  const groups = classify(movable);
+  arrange(movable, groups, (el) => estimateBox(el));
+  const remeasured = measureBoxes(movable);
   const h2 = (el) => {
-    const idx = textEls.indexOf(el);
+    const idx = movable.indexOf(el);
     return (remeasured?.[idx]) ?? estimateBox(el);
   };
-  const { bodyTop, cursors, header, blocks } = arrange(textEls, groups, h2);
+  const { bodyTop, cursors, header, blocks } = arrange(movable, groups, h2);
 
   const needed = bodyTop + Math.max(0, ...cursors) + opts.margin;
   if (needed > canvas.height) {

@@ -124,6 +124,10 @@ const pandocArgs = [
 ];
 execFileSync("pandoc", pandocArgs, { cwd: PROJECT, stdio: "inherit" });
 
+/* remember the last-rendered stem — `make repl` uses it to rebuild the
+   latest artifact on session start without guessing "most recent file" */
+writeFileSync(path.join(PROJECT, "output", ".last-stem"), stem);
+
 /* pandoc writes each line on its own source line inside the div; under
    white-space:pre-wrap every raw newline renders as an extra break (a
    blank line becomes ~3 empty lines) and breaks layout measurement.
