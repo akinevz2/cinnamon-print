@@ -103,18 +103,24 @@ function broadcast() {
 // Lines are written by scripts/cloud-step.sh (host OR container — same mount):
 //   "<done>/<count> <pct> <mode> <artifact-name>"
 let logLines = [];
-let sentCount = 0;
+let sentCount = 0;   // how many log lines have been streamed to clients
+let lastLogSize = 0; // to detect truncation (cloud-clean / fresh run)
 // Stem of the cloud currently being built (e.g. "banner"), derived from the
 // last progress-log line; used to scope final-artefact events to THIS build.
 let cloudStem = null;
 
 async function readProgressLog() {
+  let size = 0;
   try {
+    size = (await stat(PROGRESS_LOG)).size;
     const t = await readFile(PROGRESS_LOG, "utf8");
     logLines = t.split("\n").filter(Boolean);
   } catch {
     logLines = [];
   }
+  // File shrank (new run): restart the tail from the beginning.
+  if (size < lastLogSize) sentCount = 0;
+  lastLogSize = size;
   const parsed = logLines.map((line) => {
     const m = line.match(/^(\d+)\/(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/);
     return m && { progress: 1, done: +m[1], count: +m[2], pct: +m[3], mode: m[4], artifact: m[5] };
@@ -130,6 +136,8 @@ function cloudBroadcast(obj) {
 
 async function pumpProgress() {
   const parsed = await readProgressLog();
+  // Guard against an offset ahead of the (possibly truncated) log.
+  if (sentCount > parsed.length) sentCount = parsed.length;
   for (; sentCount < parsed.length; sentCount++)
     cloudBroadcast(parsed[sentCount]);
 }
@@ -137,22 +145,22 @@ async function pumpProgress() {
 // Reset the tail offset when the log is truncated by cloud-clean / a fresh run.
 function progressChanged(f) {
   if (f === "cloud-progress.log") {
-    // If the file shrank, restart from the beginning.
-    stat(PROGRESS_LOG).then((s) => {
-      if (sentCount > 0 && s.size === 0) sentCount = 0;
-      return pumpProgress();
-    }).catch(() => {
-      sentCount = 0;
-    });
+    pumpProgress().catch(() => {});
     return;
   }
   if (/\.png$/i.test(f ?? "") && !/_\d+\.png$/.test(f) && cloudStem && f === `${cloudStem}.png`)
     cloudBroadcast({ artifact: f });
 }
 
+// On boot, position the tail at the existing log (don't replay history).
+readProgressLog().then((parsed) => { sentCount = parsed.length; }).catch(() => {});
+
 for (const dir of [PROJECT, RESOURCES]) {
   watch(dir, { recursive: true }, (_e, f) => {
-    progressChanged(f ?? "");
+    // Recursive-watch event names carry the subdirectory (e.g.
+    // "output/cloud-progress.log") — cloud logic keys on the bare name.
+    const base = path.basename(f ?? "");
+    progressChanged(base);
     if (!f || /\.(png|json|html|ttf|otf|css)$/i.test(f)) {
       console.log("changed:", f ?? "?", "-> reloading", clients.size, "client(s)");
       broadcast();
