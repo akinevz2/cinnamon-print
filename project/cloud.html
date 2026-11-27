@@ -48,6 +48,15 @@
   const frame = document.getElementById("frame");
   const final = document.getElementById("final");
 
+  function setFinalLink(file) {
+    // The "open full-size" link must always point at the artefact currently
+    // in the frame — not whatever last fired a build-completion event.
+    if (!file) { final.hidden = true; return; }
+    final.hidden = false;
+    final.textContent = "open full-size " + file;
+    final.href = "/output/" + file;
+  }
+
   function onEvent(d) {
     if (d.progress) {
       fill.style.width = d.pct + "%";
@@ -58,9 +67,7 @@
       frame.src = "/output/" + d.artifact + "?v=" + Date.now();
       if (!/_\d+\.png$/.test(d.artifact)) {   // no step suffix -> final artefact
         status.textContent = "done — final artefact: " + d.artifact;
-        final.hidden = false;
-        final.textContent = "open full-size " + d.artifact;
-        final.href = "/output/" + d.artifact;
+        setFinalLink(d.artifact);
       }
     }
   }
@@ -94,6 +101,7 @@
         frame.hidden = false;
         frame.src = "/output/" + p.file + "?v=" + Date.now();
         status.textContent = "viewing " + p.title;
+        setFinalLink(p.file);                    // link follows the frame
         side.classList.add("hidden");
         refreshProjects();                       // re-mark active
       };
