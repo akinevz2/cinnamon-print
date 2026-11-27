@@ -7,6 +7,7 @@
 #   make pdf  FILE=my        # rebuild -> project/output/my.pdf
 #   make repl                # interactive opencode session (skill mounted)
 #   make serve               # node livereload server on http://localhost:8899
+#   make serve               #   .../cloud  = live cloud-fill preview + progress
 #   make check-layout        # report text overlaps / canvas overflow
 #   make arrange             # algorithmically re-stack text, no overlaps
 #   make dist                # zip the whole folder for distribution
@@ -58,9 +59,11 @@ pdf: $(IMAGE_STAMP)
 ## ---- interactive development ------------------------------------------
 
 # "REPL" work: an opencode session with the imagework-compose skill loaded,
-# fully inside the nix container.
+# fully inside the nix container. Port 8899 is forwarded so a build started
+# from INSIDE the session can be previewed live in a host browser at
+# http://localhost:8899/cloud (same as builds started on the host).
 repl: $(IMAGE_STAMP)
-	$(call DOCKER_RUN,"opencode")
+	$(DOCKER) run --rm -it --init $(VOL) $(PORT_FWD) $(IMAGE) bash -c "opencode"
 
 # Livereload webserver for browser preview during composition.
 serve: $(IMAGE_STAMP)
@@ -89,6 +92,8 @@ arrange: $(IMAGE_STAMP)
 # canvas (padding absorbs the shear/rotation bleed at the edges).
 #
 # NOTE: run serially (no `make -j`) — the steps form a strict chain.
+# While building, open http://localhost:8899/cloud for a live preview with
+# per-step progress (works for host-side and in-container builds alike).
 # Parameters (override on the command line):
 #   COUNT      number of random instances stamped   (default 256)
 #   CANVAS     working canvas side, square          (default 3000)
@@ -126,7 +131,7 @@ $(STEP).png: $(STEP)_$(PCOUNT).png
 cloud: $(STEP).png
 
 cloud-clean:
-	rm -f $(STEP)_*.png $(STEP).png
+	rm -f $(STEP)_*.png $(STEP).png project/output/cloud-progress.log
 
 
 build-image:

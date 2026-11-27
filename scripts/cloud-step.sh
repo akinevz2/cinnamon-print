@@ -50,3 +50,7 @@ bar=$(printf '%*s' "$filled" '' | tr ' ' '#')
 pad=$(printf '%*s' $(( 24 - filled )) '' | tr ' ' '.')
 printf '[%3d/%3d] %3d%% [%s%s] mode=%s\n' "$n" "$count" \
 	$(( n * 100 / count )) "$bar" "$pad" "$mode"
+# Machine-readable progress line for the live preview (serve.mjs /cloud).
+printf '%03d/%03d %d %s %s\n' "$n" "$count" \
+	$(( n * 100 / count )) "$mode" "$(basename "$target")" \
+	>> "$out/cloud-progress.log"

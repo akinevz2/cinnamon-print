@@ -1,0 +1,53 @@
+<!doctype html>
+<!-- cloud fill live preview — served at /cloud by serve.mjs; streams step
+     progress + artifact swaps over SSE from /cloud/events. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>imagework — cloud fill preview</title>
+<style>
+  body { background:#000; color:#ccc; font-family:monospace; margin:0;
+         display:flex; flex-direction:column; align-items:center; gap:14px; padding:24px; }
+  h3 { margin:0; font-weight:normal; letter-spacing:2px; color:#8af; }
+  .bar { width:min(640px,80vw); height:16px; border:1px solid #345; background:#0a0a0a; }
+  .fill { height:100%; width:0%; background:linear-gradient(90deg,#258,#8cf); transition:width .2s; }
+  #status { color:#999; }
+  img { max-width:92vw; max-height:74vh; border:1px solid #222; image-rendering:pixelated; }
+  a { color:#68f; }
+</style>
+</head>
+<body>
+<h3>cloud fill — live preview</h3>
+<div class="bar"><div class="fill" id="fill"></div></div>
+<div id="status">connecting…</div>
+<img id="frame" hidden>
+<a id="final" hidden target="_blank"></a>
+<script>
+  const fill = document.getElementById("fill");
+  const status = document.getElementById("status");
+  const frame = document.getElementById("frame");
+  const final = document.getElementById("final");
+
+  function onEvent(d) {
+    if (d.progress) {
+      fill.style.width = d.pct + "%";
+      status.textContent = `step ${d.done}/${d.count} (${d.pct}%) — mode=${d.mode}`;
+    }
+    if (d.artifact) {
+      frame.hidden = false;
+      frame.src = "/output/" + d.artifact + "?v=" + Date.now();
+      if (!/_\d+\.png$/.test(d.artifact)) {   // no step suffix -> final artefact
+        status.textContent = "done — final artefact: " + d.artifact;
+        final.hidden = false;
+        final.textContent = "open full-size " + d.artifact;
+        final.href = "/output/" + d.artifact;
+      }
+    }
+  }
+
+  const es = new EventSource("/cloud/events");
+  es.onmessage = (e) => { if (e.data) onEvent(JSON.parse(e.data)); };
+  es.onopen = () => { status.textContent = "waiting for build events…"; };
+</script>
+</body>
+</html>
