@@ -164,6 +164,19 @@ for an image effect ImageMagick can't do. The limits:
    typography and both render targets. Image transforms between steps
    are one `magick` invocation — crop, scale, tint, flatten, append.
 
+5. **Progress reporting (every project has one).** Each project stem is an
+   independent persistent object with its own build progress, shown live on
+   the project console (`/`). Emit it with:
+   ```
+   scripts/progress.sh <stem> <step> <total> ["label"]
+   ```
+   - **Simple projects** (the common case): emit `0 1 "prompt received"`
+     when the user submits a build request, and `1 1 "output ready"` after
+     the render completes — the console shows a 0/1 → 1/1 bar per project.
+   - **Multi-step builds** (e.g. monte-carlo clouds): one emission per step
+     (`cloud-step.sh` already does this) — the console shows N/total.
+   State persists in `output/<stem>.progress` (state file, gitignored).
+
 **Anti-patterns (these signal you skipped the intent-first step):**
 - reaching for puppeteer/playwright to "drive a browser" — the pipeline
   already does exactly that

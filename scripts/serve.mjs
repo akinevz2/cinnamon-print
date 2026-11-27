@@ -16,7 +16,6 @@ const SCRIPTS = path.join(ROOT, "scripts");
 const OUTPUT = path.join(PROJECT, "output");
 const SHADERS = path.join(RESOURCES, "shaders");
 const FRAGMENTS = path.join(RESOURCES, "fragments");
-const PROGRESS_LOG = path.join(OUTPUT, "cloud-progress.log");
 const PORT = process.env.PORT ?? 8899;
 
 const clients = new Set();   // /reload (compose.html livereload)
@@ -50,17 +49,22 @@ const server = http.createServer(async (req, res) => {
     res.write("retry: 1000\n\n");
     cloudClients.add(res);
     // Snapshot so a browser joining mid-build (or after it) is up to date:
-    // replay the last log line, then the final artefact for the stem being
-    // built (NOT every stray png in output/ from previous projects).
-    const lines = await readProgressLog();
-    const last = lines.at(-1);
-    if (last) res.write(`data: ${JSON.stringify(last)}\n\n`);
+    // replay each project's current progress state, then the final artefact
+    // of the last-built stem.
+    const states = await progressMap();
+    for (const p of Object.values(states)) res.write(`data: ${JSON.stringify(p)}\n\n`);
     try {
-      for (const f of await readdir(OUTPUT))
-        if (/\.png$/i.test(f) && !/_\d+\.png$/.test(f) && cloudStem && f === `${cloudStem}.png`)
-          res.write(`data: ${JSON.stringify({ artifact: f })}\n\n`);
+      const lastStem = (await readFile(path.join(OUTPUT, ".last-stem"), "utf8")).trim();
+      res.write(`data: ${JSON.stringify({ artifact: `${lastStem}.png`, stem: lastStem })}\n\n`);
     } catch {}
     req.on("close", () => cloudClients.delete(res));
+    return;
+  }
+
+  // Full per-stem progress state (for page loads; SSE carries deltas).
+  if (req.url === "/api/progress") {
+    res.writeHead(200, { "Content-Type": MIME[".json"], "Cache-Control": "no-store" });
+    res.end(JSON.stringify(await progressMap()));
     return;
   }
 
@@ -190,35 +194,42 @@ async function saveFragment(req, res) {
   }
 }
 
-// ---- cloud fill progress: tail project/output/cloud-progress.log ----------
-// Lines are written by scripts/cloud-step.sh (host OR container — same mount):
-//   "<done>/<count> <pct> <mode> <artifact-name>"
-let logLines = [];
-let sentCount = 0;   // how many log lines have been streamed to clients
-let lastLogSize = 0; // to detect truncation (cloud-clean / fresh run)
-// Stem of the cloud currently being built (e.g. "banner"), derived from the
-// last progress-log line; used to scope final-artefact events to THIS build.
-let cloudStem = null;
+// ---- per-project build progress ------------------------------------------
+// scripts/progress.sh writes output/<stem>.progress (overwritten state, one
+// JSON object per stem: {stem, step, total, pct, label}); the watcher pushes
+// updates to /cloud/events, and /api/progress returns the full state map for
+// page loads. cloud-step.sh emits one step per stamped instance; simple
+// agent projects emit 0/1 at prompt submission and 1/1 when output lands.
+const PROGRESS_RE = /^(.+)\.progress$/;
 
-async function readProgressLog() {
-  let size = 0;
+async function readStemProgress(stem) {
   try {
-    size = (await stat(PROGRESS_LOG)).size;
-    const t = await readFile(PROGRESS_LOG, "utf8");
-    logLines = t.split("\n").filter(Boolean);
+    return JSON.parse(await readFile(path.join(OUTPUT, `${stem}.progress`), "utf8"));
   } catch {
-    logLines = [];
+    return null;
   }
-  // File shrank (new run): restart the tail from the beginning.
-  if (size < lastLogSize) sentCount = 0;
-  lastLogSize = size;
-  const parsed = logLines.map((line) => {
-    const m = line.match(/^(\d+)\/(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/);
-    return m && { progress: 1, done: +m[1], count: +m[2], pct: +m[3], mode: m[4], artifact: m[5] };
-  }).filter(Boolean);
-  const lastArtifact = parsed.at(-1)?.artifact;
-  cloudStem = lastArtifact ? lastArtifact.replace(/_\d+\.png$/, "") : null;
-  return parsed;
+}
+
+async function progressMap() {
+  let files = [];
+  try {
+    files = (await readdir(OUTPUT)).filter((f) => PROGRESS_RE.test(f));
+  } catch {
+    return {};
+  }
+  const map = {};
+  for (const f of files) {
+    const stem = f.replace(PROGRESS_RE, "$1");
+    const p = await readStemProgress(stem).catch(() => null);
+    if (p) map[stem] = p;
+  }
+  return map;
+}
+
+async function pumpProgress(f) {
+  const stem = f.replace(PROGRESS_RE, "$1");
+  const p = await readStemProgress(stem).catch(() => null);
+  if (p) cloudBroadcast(p);
 }
 
 function cloudBroadcast(obj) {
@@ -261,33 +272,22 @@ async function listProjects() {
   return projects.sort((a, b) => (b.last - a.last) || (a.updated < b.updated ? 1 : -1));
 }
 
-async function pumpProgress() {
-  const parsed = await readProgressLog();
-  // Guard against an offset ahead of the (possibly truncated) log.
-  if (sentCount > parsed.length) sentCount = parsed.length;
-  for (; sentCount < parsed.length; sentCount++)
-    cloudBroadcast(parsed[sentCount]);
-}
-
-// Reset the tail offset when the log is truncated by cloud-clean / a fresh run.
 function progressChanged(f) {
-  if (f === "cloud-progress.log") {
-    pumpProgress().catch(() => {});
+  if (PROGRESS_RE.test(f ?? "")) {
+    pumpProgress(f).catch(() => {});
     return;
   }
-  if (/\.png$/i.test(f ?? "") && !/_\d+\.png$/.test(f) && cloudStem && f === `${cloudStem}.png`)
-    cloudBroadcast({ artifact: f });
-  // Any final png appearing/changing refreshes the sidebar on all clients.
-  if (/\.png$/i.test(f ?? "") && !/_\d+\.png$/.test(f)) cloudBroadcast({ projects: 1 });
+  if (/\.png$/i.test(f ?? "") && !/_\d+\.png$/.test(f)) {
+    const stem = f.replace(/\.png$/i, "");
+    cloudBroadcast({ artifact: f, stem });   // scope swaps to the emitting project
+    cloudBroadcast({ projects: 1 });         // any final png refreshes the sidebar
+  }
 }
-
-// On boot, position the tail at the existing log (don't replay history).
-readProgressLog().then((parsed) => { sentCount = parsed.length; }).catch(() => {});
 
 for (const dir of [PROJECT, RESOURCES]) {
   watch(dir, { recursive: true }, (_e, f) => {
     // Recursive-watch event names carry the subdirectory (e.g.
-    // "output/cloud-progress.log") — cloud logic keys on the bare name.
+    // "output/cheese.progress") — progress logic keys on the bare name.
     const base = path.basename(f ?? "");
     progressChanged(base);
     if (f && /\.frag$/i.test(f)) {

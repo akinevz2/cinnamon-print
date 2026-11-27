@@ -29,6 +29,10 @@
   #plist .d { color:#567; font-size:11px; margin-top:3px; }
   #plist .dim { color:#456; cursor:default; }
   #plist .active { background:#12222e; }
+  /* per-project mini progress bar inside each sidebar entry */
+  #plist .mini { height:4px; background:#0a0a0a; border:1px solid #234; margin-top:5px; }
+  #plist .mini i { display:block; height:100%; width:0%; background:linear-gradient(90deg,#258,#8cf); transition:width .2s; }
+  #plist .steps { color:#689; font-size:10px; margin-top:2px; }
   /* right-hand frag pane: overlay, 50% width, no layout shift */
   #fragpane { position:fixed; top:0; right:0; bottom:0; width:50vw;
               background:#0b0f14; border-left:1px solid #234; padding:16px 14px;
@@ -105,6 +109,14 @@
   const side = document.getElementById("side");
   const plist = document.getElementById("plist");
   let activeFile = null;
+  const progressState = {};   // per-stem build progress: {step,total,pct,label}
+
+  function miniBar(stem) {
+    const p = progressState[stem];
+    if (!p) return "";
+    return `<div class="mini"><i style="width:${p.pct}%"></i></div>` +
+           `<div class="steps">${p.step}/${p.total}${p.label ? " · " + p.label : ""}</div>`;
+  }
 
   document.getElementById("tab").onclick = () => side.classList.toggle("hidden");
   side.classList.add("hidden"); // start collapsed
@@ -136,6 +148,7 @@
       if (p.prompt) d.title = p.prompt;         // prompt summary on hover
       li.append(t, d);
       li.onclick = () => select(p, li);
+      li.insertAdjacentHTML("beforeend", miniBar(p.file.replace(/\.png$/i, "")));
       if (p.prompt) {
         const pr = document.createElement("div"); pr.className = "d";
         pr.textContent = p.prompt.length > 80 ? p.prompt.slice(0, 80) + "…" : p.prompt;
@@ -153,10 +166,29 @@
   es.onmessage = (e) => {
     if (!e.data) return;
     const d = JSON.parse(e.data);
+    if (d.stem && "step" in d && "total" in d) {
+      // per-project build progress: update state, sidebar mini-bar, and the
+      // main bar (which mirrors the active project's build)
+      progressState[d.stem] = d;
+      if (!activeFile || activeFile.replace(/\.png$/i, "") === d.stem) {
+        fill.style.width = d.pct + "%";
+        status.textContent = `building ${d.stem}: ${d.step}/${d.total}` + (d.label ? " — " + d.label : "");
+      }
+      refreshProjects();
+      return;
+    }
     if (d.projects) { refreshProjects(); return; }
     onEvent(d);
   };
-  es.onopen = () => { status.textContent = "waiting for build events…"; };
+  es.onopen = async () => {
+    // restore per-stem progress state for the sidebars (page reloads)
+    try {
+      const map = await (await fetch("/api/progress")).json();
+      for (const [stem, p] of Object.entries(map)) progressState[stem] = p;
+      refreshProjects();
+    } catch {}
+    status.textContent = "waiting for build events…";
+  };
 </script>
 <script type="module">
   // Right-hand frag pane: live shader swatches (same renderer as /frag),
