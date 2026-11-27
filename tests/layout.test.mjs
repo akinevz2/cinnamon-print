@@ -14,19 +14,25 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const LAYOUT = path.join(ROOT, "project", "layout.json");
 
 function runLayout(...args) {
-  return spawnSync(process.execPath, ["scripts/layout.mjs", ...args], {
+  return spawnSync(process.execPath, ["scripts/layout.mjs", ...args, PROBE_STEM], {
     cwd: ROOT,
     encoding: "utf8",
   });
 }
 
-/* Swap in a fixture layout, run, restore — even when the test fails. */
+/* Swap in a probe project folder (project/__probe__/layout.json), run, clean
+   up — even when the test fails. layout.mjs resolves per-project layouts
+   from the store; tests address their own folder explicitly. */
+import { mkdirSync, rmSync } from "node:fs";
+
+const PROBE_STEM = "__probe__";
+
 function withLayout(elements, fn) {
-  const original = readFileSync(LAYOUT, "utf8");
-  writeFileSync(LAYOUT, JSON.stringify({
+  const dir = path.join(ROOT, "project", PROBE_STEM);
+  mkdirSync(path.join(dir, "output"), { recursive: true });
+  writeFileSync(path.join(dir, "layout.json"), JSON.stringify({
     title: "test layout",
     canvas: { width: 1200, height: 800, background: "#ffffff" },
     elements,
@@ -34,7 +40,7 @@ function withLayout(elements, fn) {
   try {
     return fn();
   } finally {
-    writeFileSync(LAYOUT, original);
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 
@@ -82,7 +88,7 @@ test("arrange leaves pinned elements untouched", () => {
   ], () => {
     const r = runLayout("arrange");
     assert.equal(r.status, 0, r.stderr || r.stdout);
-    const layout = JSON.parse(readFileSync(LAYOUT, "utf8"));
+    const layout = JSON.parse(readFileSync(path.join(ROOT, "project", PROBE_STEM, "layout.json"), "utf8"));
     const footer = layout.elements.find((e) => e.text.startsWith("made with"));
     assert.deepEqual(
       { x: footer.x, y: footer.y, width: footer.width },
